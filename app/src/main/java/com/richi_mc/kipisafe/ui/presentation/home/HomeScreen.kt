@@ -18,6 +18,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import com.richi_mc.kipisafe.ui.presentation.home.components.HomeActions
+import com.richi_mc.kipisafe.ui.presentation.home.components.HomeAiTip
 import com.richi_mc.kipisafe.ui.presentation.home.components.HomeDialogs
 import com.richi_mc.kipisafe.ui.presentation.home.components.HomeHeader
 import com.richi_mc.kipisafe.ui.presentation.home.components.HomeStatus
@@ -97,6 +98,10 @@ fun HomeScreen(
             Spacer(modifier = Modifier.height(32.dp))
 
             HomeStatus(uiState = uiState)
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            HomeAiTip()
 
             Spacer(modifier = Modifier.weight(1f))
 

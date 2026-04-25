@@ -40,7 +40,7 @@ fun HomeStatus(
     }
 
     Surface(
-        modifier = modifier,
+        modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(24.dp),
         color = statusColor.copy(alpha = 0.1f),
         border = androidx.compose.foundation.BorderStroke(1.dp, statusColor.copy(alpha = 0.2f))

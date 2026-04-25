@@ -1,0 +1,24 @@
+<resources>
+    <string name="app_name">Kipi Safe</string>
+    <string name="kipi_foreground_channel_name">Kipi Safe — transparencia</string>
+    <string name="kipi_foreground_channel_description">Indicador de protección activa (sin sonido)</string>
+    <string name="kipi_foreground_notification_title">Kipi Safe</string>
+    <string name="kipi_foreground_notification_text">Protección activa</string>
+    <string name="kipi_brand_icon">🛡️</string>
+    <string name="kipi_brand_name">Kipi Safe</string>
+    <string name="kipi_status_verifying">Verificando permisos…</string>
+    <string name="kipi_status_active">Kipi está activo y protegiéndote</string>
+    <string name="kipi_status_need_post_notifications">Necesitamos permiso para mostrar la protección en segundo plano</string>
+    <string name="kipi_status_need_listener">Activa el acceso a notificaciones para que Kipi pueda acompañarte</string>
+    <string name="kipi_grant_permissions_button">Conceder permisos</string>
+    <string name="kipi_dialog_title">Kipi</string>
+    <string name="kipi_dialog_listener_message">Hola, soy Kipi. Para poder acompañarte, necesito que me permitas ver las notificaciones.</string>
+    <string name="kipi_dialog_open_settings">Ir a ajustes</string>
+    <string name="kipi_dialog_not_now">Ahora no</string>
+    <string name="kipi_status_need_overlay">Permite que Kipi muestre consejos en pantalla cuando detecte algo importante</string>
+    <string name="kipi_dialog_overlay_message">Para mostrarte consejos cuando lo necesites, Kipi necesita permiso para dibujar sobre otras apps. Activa «Mostrar sobre otras apps» para Kipi Safe.</string>
+    <string name="kipi_overlay_dismiss">Entendido</string>
+    <string name="kipi_overlay_kipi_content_desc">Kipi</string>
+
+    <string name="accessibility_description"> Vamos a leer la pantalla para asegurarnos qué el niño no  este viendo nada malo</string>
+</resources>

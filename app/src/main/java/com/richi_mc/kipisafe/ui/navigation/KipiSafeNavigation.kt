@@ -41,8 +41,7 @@ fun KipiSafeNavigation() {
 
     val navigationItems = listOf(
         NavigationItem("Inicio", Home, Icons.Default.Home),
-        NavigationItem("Estadísticas", Stats, Icons.Default.BarChart),
-        NavigationItem("Ajustes", Settings, Icons.Default.Settings)
+        NavigationItem("Estadísticas", Stats, Icons.Default.BarChart)
     )
 
     Scaffold(
@@ -94,10 +93,6 @@ fun KipiSafeNavigation() {
 
             composable<Stats> {
                 MetricsScreen()
-            }
-
-            composable<Settings> {
-                // TODO: Implementar pantalla de Ajustes
             }
         }
     }

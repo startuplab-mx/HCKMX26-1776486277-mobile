@@ -12,7 +12,7 @@ from sklearn.metrics import classification_report
 from scipy.sparse import hstack, csr_matrix
 import os
 
-version = "v4"
+version = "v5"
 
 # ─────────────────────────────────────────────
 # 1. LIMPIEZA DE TEXTO
@@ -409,10 +409,10 @@ class HybridPipeline:
 def build_ml_pipeline(le):
     class_weights = {
         le.transform(["SAFE"])[0]       : 1.0,
-        le.transform(["SYMBOLS"])[0]    : 1.5,
+        le.transform(["SYMBOLS"])[0]    : 1.0,
         le.transform(["BELONGING"])[0]  : 2.0,
-        le.transform(["HIGH_RISK"])[0]  : 3.5,  # Subimos de 2.5 a 3.5 para rescatar su Recall
-        le.transform(["MIXED"])[0]      : 1.8,
+        le.transform(["HIGH_RISK"])[0]  : 4.0,  # Subimos de 2.5 a 4.0  para rescatar su Recall
+        le.transform(["MIXED"])[0]      : 2.5,
         le.transform(["BULLYING"])[0]   : 2.5,  # Bajamos de 4.0 a 2.5 para mejorar su Precisión
         le.transform(["THREAT"])[0]     : 3.0,  # Bajamos de 5.0 a 3.0 (dejamos que ThreatRuler haga el trabajo pesado)
     }
@@ -578,21 +578,10 @@ if __name__ == "__main__":
 
     print("\n--- PRUEBAS DE INFERENCIA ---")
     test_phrases = [
-        # símbolos
-        "Puro 🍕 reportando, manda dm para jale 💰",
-        "Hola mamá, ya voy para la casa",
-        "Aquí somos familia 🐔 nadie te deja solo carnal",
-        "🍕 presente",
-        "NG activo 🐔",
-        # amenazas
-        "te voy a picar si no me das el celular ahorita",
-        "cobro de piso, pagas o no amaneces",
-        "ya te tenemos ubicado, un movimiento en falso y te levantamos",
-        "una llamada más a la placa y te mueres",
-        # bullying
-        "te vamos a funar en twitter por ridículo",
-        "pasa el pack o lo invento y te quemo de todos modos",
-        "voy a hacer un hilo contando toda la mierda que eres",
+        "Viva la maña arriba la cha🍕",
+        "Aqui te vamos a apreciar",
+        "Pero no le digas a nadie",
+        "Unete a la cha🍕"
     ]
 
     for phrase in test_phrases:

@@ -140,7 +140,8 @@ class KipiNotificationService : NotificationListenerService() {
 
             // 5. Símbolos (Silencioso, solo log)
             result.label == "SYMBOLS" && result.confidence > SYMBOLS_CONFIDENCE_THRESHOLD -> {
-                Log.w("KipiSafe", "Símbolos sospechosos detectados en $appSource: $textPreview")
+                showWarningOverlay("Kipi detectó símbolos con notación dudosa. Consulta con un adulto antes de contestar.")
+                return
             }
         }
 
@@ -365,7 +366,7 @@ class KipiNotificationService : NotificationListenerService() {
         private const val HIGH_RISK_CONFIDENCE_THRESHOLD = 0.75
         private const val BULLYING_CONFIDENCE_THRESHOLD = 0.80  // Alto para evitar falsos positivos con lenguaje coloquial
         private const val BELONGING_CONFIDENCE_THRESHOLD = 0.85
-        private const val SYMBOLS_CONFIDENCE_THRESHOLD = 0.90
+        private const val SYMBOLS_CONFIDENCE_THRESHOLD = 0.70
         private const val CLOUD_FALLBACK_CONFIDENCE_THRESHOLD = 0.60
 
         // 💡 CORRECCIÓN 2: Se ajustaron para atrapar solo notificaciones multimedia del sistema,

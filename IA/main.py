@@ -11,7 +11,7 @@ import json
 import numpy as np
 import os
 
-version = "v1"
+version = "v2"
 
 # --- 1. LIMPIEZA DE TEXTO ---
 def clean_text(text):
@@ -119,11 +119,11 @@ class RiskInference:
 def get_optimized_pipeline(le):
     # Definimos los pesos usando los nombres de las clases
     text_weights = {
-        "SAFE": 1.0,
-        "SYMBOLS": 4.5,
-        "BELONGING": 2.0,
-        "HIGH_RISK": 2.2,
-        "MIXED": 1.0
+        "SAFE": 1.0,        # Mantenemos la base
+        "SYMBOLS": 2.5,     # Bajamos de 4.5 a 2.5 (ya no necesita tanta ayuda agresiva)
+        "BELONGING": 2.0,   # Funciona perfecto (F1 de 0.90), no lo tocamos
+        "HIGH_RISK": 2.5,   # Subimos un poco (de 2.2 a 2.5) para recuperar ese Recall perdido
+        "MIXED": 1.8        # Subimos de 1.0 a 1.8 para que no sea aplastado por los demás
     }
     
     # Convertimos los nombres a los números que el modelo entiende

@@ -4,7 +4,13 @@ import android.accessibilityservice.AccessibilityService
 import android.util.Log
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
+import com.richi_mc.kipisafe.data.local.KipiLocalInference
+import com.richi_mc.kipisafe.data.model.NotificationAnalyzeRequest
+import com.richi_mc.kipisafe.data.remote.RetrofitClient
+import com.richi_mc.kipisafe.ui.overlay.KipiOverlayManager
 import kotlinx.coroutines.*
+import java.util.Locale
+import java.util.concurrent.ConcurrentHashMap
 
 class ParentalControlAccessibilityService : AccessibilityService() {
 
@@ -12,6 +18,17 @@ class ParentalControlAccessibilityService : AccessibilityService() {
     private val serviceJob = SupervisorJob()
     private val serviceScope = CoroutineScope(Dispatchers.Default + serviceJob)
     private val appCategoryCache = mutableMapOf<String, Boolean>()
+    private lateinit var localInference: KipiLocalInference
+
+    /** Evita re-analizar el mismo texto en ráfaga (debounce). */
+    private val processedCache = ConcurrentHashMap<String, Long>()
+
+    private var lastAnalysisTime = 0L
+
+    override fun onCreate() {
+        super.onCreate()
+        localInference = KipiLocalInference(applicationContext)
+    }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
         if (event == null) return
@@ -23,24 +40,111 @@ class ParentalControlAccessibilityService : AccessibilityService() {
 
         // Filter events when screen changes or some text are writed.
         if (event.eventType == AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED ||
-            event.eventType == AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED) {
+            event.eventType == AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED ||
+            event.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) {
+
+            val currentTime = System.currentTimeMillis()
+            if (currentTime - lastAnalysisTime < ANALYSIS_INTERVAL_MS) return
+            lastAnalysisTime = currentTime
 
             val rootNode = rootInActiveWindow ?: return
-            val packageName = event.packageName?.toString() ?: "Paquete Desconocido"
-
+            
             serviceScope.launch {
                 val extractedText = extractTextFromNode(rootNode)
-
                 rootNode.recycle()
 
-                val cleanText = extractedText.trim()
-                if (cleanText.isNotBlank()) {
-                    // Aquí es donde inyectarías este texto a tu modelo local (Ej. TensorFlow Lite)
-                    Log.d("AccessibilityExtract", "App: $packageName | Texto: $cleanText")
-
-                    // sendToEdgeAI(packageName, cleanText)
+                val cleanText = cleanExtractedText(extractedText)
+                if (isValidForAnalysis(cleanText) && !isDuplicateText(cleanText)) {
+                    Log.d(TAG, "Analizando texto de accesibilidad: ${cleanText.take(100)}")
+                    runAnalyzeRequest(packageName, cleanText)
                 }
             }
+        }
+    }
+
+    private fun cleanExtractedText(text: String): String {
+        return text.split("\n")
+            .map { it.trim() }
+            .filter { it.length > 2 }
+            .distinct()
+            .joinToString(". ")
+            .replace(Regex("\\s+"), " ")
+            .trim()
+    }
+
+    private fun isDuplicateText(text: String): Boolean {
+        val now = System.currentTimeMillis()
+        val last = processedCache.putIfAbsent(text, now)
+        if (last != null) {
+            if (now - last < CACHE_EXPIRATION_MS) return true
+            processedCache.replace(text, last, now)
+        }
+        if (processedCache.size > MAX_CACHE_ENTRIES) processedCache.clear()
+        return false
+    }
+
+    private fun isValidForAnalysis(text: String): Boolean {
+        if (text.isBlank()) return false
+        if (CRITICAL_EMOJIS.any { text.contains(it) }) return true
+        
+        val lower = text.lowercase(Locale.getDefault())
+        if (SYSTEM_NOISE_PATTERNS.any { lower.contains(it) }) return false
+        
+        return text.length >= MIN_MEANINGFUL_LENGTH
+    }
+
+    private suspend fun runAnalyzeRequest(appSource: String, textPreview: String) {
+        val hasCriticalEmoji = CRITICAL_EMOJIS.any { textPreview.contains(it) }
+        val result = localInference.analyzeTextLocally(textPreview)
+
+        when {
+            result.label == "THREAT" && result.confidence > THREAT_CONFIDENCE_THRESHOLD -> {
+                showCriticalOverlay("¡ALERTA! Kipi detectó una amenaza directa en pantalla. Por favor, busca ayuda de un adulto inmediatamente.")
+                return
+            }
+            result.label == "HIGH_RISK" && result.confidence > HIGH_RISK_CONFIDENCE_THRESHOLD -> {
+                showCriticalOverlay("¡CUIDADO! He detectado un posible intento de reclutamiento o lenguaje peligroso. No compartas datos personales.")
+                return
+            }
+            result.label == "BULLYING" && result.confidence > BULLYING_CONFIDENCE_THRESHOLD -> {
+                showWarningOverlay("Kipi detectó lenguaje ofensivo o ciberacoso en esta aplicación. No respondas a las provocaciones.")
+                return
+            }
+        }
+
+        if (result.label == "MIXED" || result.confidence < CLOUD_FALLBACK_CONFIDENCE_THRESHOLD || hasCriticalEmoji) {
+            val request = NotificationAnalyzeRequest(
+                minor_id = MINOR_ID_PROTOTYPE,
+                app_source = appSource,
+                text_preview = textPreview
+            )
+            try {
+                val response = RetrofitClient.api.analyzeNotifications(request)
+                if (response.isSuccessful) {
+                    val body = response.body()
+                    val riskLevel = body?.analysis?.risk_level ?: 0
+                    if (riskLevel >= RISK_LOG_THRESHOLD) {
+                        val finalMessage = body?.analysis?.kipi_response ?: "He detectado una situación inusual. Ten cuidado."
+                        withContext(Dispatchers.Main) {
+                            KipiOverlayManager(applicationContext).showKipiAdvice(finalMessage)
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Error en análisis remoto: ${e.message}")
+            }
+        }
+    }
+
+    private suspend fun showCriticalOverlay(message: String) {
+        withContext(Dispatchers.Main) {
+            KipiOverlayManager(applicationContext).showKipiAdvice(message)
+        }
+    }
+
+    private suspend fun showWarningOverlay(message: String) {
+        withContext(Dispatchers.Main) {
+            KipiOverlayManager(applicationContext).showKipiAdvice(message)
         }
     }
 
@@ -77,12 +181,16 @@ class ParentalControlAccessibilityService : AccessibilityService() {
         val monitoredPackages = setOf(
             "com.whatsapp",
             "com.facebook.orca", // Messenger
+            "com.facebook.mlite", // Messenger Lite
             "com.facebook.katana", // Facebook
+            "com.facebook.lite", // Facebook Lite
             "com.instagram.android",
+            "com.instagram.lite", // Instagram Lite
             "org.telegram.messenger",
             "com.twitter.android",
             "com.snapchat.android",
             "com.zhiliaoapp.musically", // TikTok
+            "com.zhiliaoapp.musically.go", // TikTok Lite
             "com.google.android.apps.messaging", // Google Messages
             "com.discord",
             "com.google.android.youtube", // YouTube
@@ -118,7 +226,34 @@ class ParentalControlAccessibilityService : AccessibilityService() {
     }
 
     override fun onDestroy() {
-        super.onDestroy()
+        localInference.close()
         serviceJob.cancel()
+        super.onDestroy()
+    }
+
+    companion object {
+        private const val TAG = "KipiAccessibility"
+        private const val ANALYSIS_INTERVAL_MS = 1000L // Lectura cada segundo
+        
+        private val CRITICAL_EMOJIS = setOf("🍕", "🥷", "🪖", "🐔", "🐓", "👁️", "🧿", "👺", "👹", "🆖", "🦂")
+        
+        private const val MINOR_ID_PROTOTYPE = "123e4567-e89b-12d3-a456-426614174000"
+        private const val RISK_LOG_THRESHOLD = 2
+        private const val MIN_MEANINGFUL_LENGTH = 5
+        
+        private const val CACHE_EXPIRATION_MS = 5000L
+        private const val MAX_CACHE_ENTRIES = 30
+
+        private const val THREAT_CONFIDENCE_THRESHOLD = 0.70
+        private const val HIGH_RISK_CONFIDENCE_THRESHOLD = 0.75
+        private const val BULLYING_CONFIDENCE_THRESHOLD = 0.80
+        private const val CLOUD_FALLBACK_CONFIDENCE_THRESHOLD = 0.60
+
+        private val SYSTEM_NOISE_PATTERNS = listOf(
+            "comprobando si hay mensajes",
+            "cargando...",
+            "actualizando",
+            "escribiendo..."
+        )
     }
 }

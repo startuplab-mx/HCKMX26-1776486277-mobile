@@ -55,7 +55,7 @@ class ParentalControlAccessibilityService : AccessibilityService() {
 
                 val cleanText = cleanExtractedText(extractedText)
                 if (isValidForAnalysis(cleanText) && !isDuplicateText(cleanText)) {
-                    Log.d(TAG, "Analizando texto de accesibilidad: ${cleanText.take(100)}")
+                    Log.d(TAG, "Analizando texto de accesibilidad: ${cleanText}")
                     runAnalyzeRequest(packageName, cleanText)
                 }
             }

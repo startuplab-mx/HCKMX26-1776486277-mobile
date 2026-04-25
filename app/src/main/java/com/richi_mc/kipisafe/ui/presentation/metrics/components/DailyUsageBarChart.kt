@@ -74,28 +74,45 @@ fun DailyUsageBarChart(
 
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally,
-                        modifier = Modifier.weight(1f)
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxHeight()
                     ) {
-                        if (day.totalTimeInMinutes > 0) {
-                            Text(
-                                text = formatHoursLabel(day.totalTimeInMinutes),
-                                style = MaterialTheme.typography.labelSmall,
-                                fontWeight = FontWeight.SemiBold,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.padding(bottom = 6.dp)
-                            )
+                        // 1. Etiqueta de horas (Espacio reservado arriba para evitar solapamiento)
+                        Box(
+                            modifier = Modifier.height(24.dp),
+                            contentAlignment = Alignment.BottomCenter
+                        ) {
+                            if (day.totalTimeInMinutes > 0) {
+                                Text(
+                                    text = formatHoursLabel(day.totalTimeInMinutes),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
                         }
 
+                        Spacer(modifier = Modifier.height(4.dp))
+
+                        // 2. Área de la barra (Crece dinámicamente en el espacio restante)
                         Box(
                             modifier = Modifier
-                                .fillMaxWidth()
-                                .fillMaxHeight(heightFraction)
-                                .clip(RoundedCornerShape(topStart = 8.dp, topEnd = 8.dp, bottomStart = 4.dp, bottomEnd = 4.dp))
-                                .background(
-                                    if (heightFraction > 0.8f) MaterialTheme.colorScheme.secondary
-                                    else MaterialTheme.colorScheme.secondary.copy(alpha = 0.7f)
-                                )
-                        )
+                                .weight(1f)
+                                .fillMaxWidth(),
+                            contentAlignment = Alignment.BottomCenter
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth(0.8f)
+                                    .fillMaxHeight(heightFraction)
+                                    .clip(RoundedCornerShape(topStart = 8.dp, topEnd = 8.dp, bottomStart = 4.dp, bottomEnd = 4.dp))
+                                    .background(
+                                        if (heightFraction > 0.8f) MaterialTheme.colorScheme.secondary
+                                        else MaterialTheme.colorScheme.secondary.copy(alpha = 0.7f)
+                                    )
+                            )
+                        }
                         
                         Spacer(modifier = Modifier.height(12.dp))
                         

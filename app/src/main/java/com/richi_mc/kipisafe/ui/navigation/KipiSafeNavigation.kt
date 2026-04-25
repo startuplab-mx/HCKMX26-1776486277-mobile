@@ -1,6 +1,7 @@
 package com.richi_mc.kipisafe.ui.navigation
 
 import androidx.annotation.DrawableRes
+import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.navigationBarsPadding
@@ -19,6 +20,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ModifierLocalBeyondBoundsLayout
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -72,9 +74,14 @@ fun KipiSafeNavigation() {
                 ) {
                     navigationItems.forEach { item ->
                         val isSelected = currentDestination?.hasRoute(item.route::class) == true
+                        val backColor = if (isSelected) MaterialTheme.colorScheme.primaryContainer else Color.Transparent
 
                         NavigationBarItem(
                             selected = isSelected,
+                            modifier = Modifier.background(backColor),
+                            colors = androidx.compose.material3.NavigationBarItemDefaults.colors(
+                                indicatorColor = Color.Transparent // Esto elimina el óvalo de fondo de M3
+                            ),
                             onClick = {
                                 navController.navigate(item.route) {
                                     popUpTo(navController.graph.findStartDestination().id) {
@@ -88,13 +95,11 @@ fun KipiSafeNavigation() {
                                 Icon(
                                     painter = painterResource(id = item.icon),
                                     contentDescription = item.title,
-                                    modifier = Modifier.size(32.dp)
-                                    // Tintado automático de M3 para items seleccionados/no seleccionados
+                                    modifier = Modifier.size(32.dp),
+                                    tint = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             },
-                            label = {
-
-                            }
+                            label = { }
                         )
                     }
                 }

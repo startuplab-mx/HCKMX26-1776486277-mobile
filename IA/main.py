@@ -93,9 +93,10 @@ class AggressionFeaturizer(BaseEstimator, TransformerMixin):
             threat_hits  = sum(1 for v in self.THREAT_VERBS if v in t_lower)
             bully_hits   = sum(1 for v in self.BULLY_VERBS  if v in t_lower)
             insult_hits  = sum(1 for v in self.INSULTS       if v in t_lower)
+            emoji_density = sum(text.count(e) for e in ["🍕","🐔","🥷","🪖","👁️","👺"]) / max(len(text.split()), 1)
             rows.append([
                 caps_ratio, exclamations, questions,
-                threat_hits, bully_hits, insult_hits
+                threat_hits, bully_hits, insult_hits, emoji_density
             ])
         return csr_matrix(np.array(rows, dtype=np.float32))
 
@@ -133,11 +134,19 @@ class SymbolsScorer:
             breakdown.append("+1 diversidad emojis")
 
         stripped = re.sub(r'[\s]', '', t)
-        only_emojis = all(
-            any(stripped[i:].startswith(e) for e in self.RISK_EMOJIS)
-            for i in range(len(stripped))
-            if stripped[i] not in ' \t'
-        ) and len(stripped) > 0 and emoji_hits
+        non_space = stripped.replace(' ', '').replace('\t', '')
+        only_emojis = (
+            len(non_space) > 0
+            and bool(emoji_hits)
+            and all(
+                any(non_space[i:].startswith(e) for e in self.RISK_EMOJIS)
+                for i in range(len(non_space))
+                if not any(non_space[i:].startswith(e) for e in self.RISK_EMOJIS)
+                # solo verifica posiciones que NO son inicio de emoji conocido
+            ) is False  # si hay algún char que no sea emoji → False
+        )
+
+        
         if only_emojis:
             points += 2
             breakdown.append("+2 solo emojis")
@@ -256,17 +265,15 @@ class ThreatRuler:
                 breakdown.append(f"+3 daño físico '{v}'")
                 break
 
-        for v in self.EXTORTION:
-            if v in t:
-                points += 2
-                breakdown.append(f"+2 extorsión '{v}'")
-                break
+        extortion_hits = [v for v in self.EXTORTION if v in t]
+        if extortion_hits:
+            points += 2 * min(len(extortion_hits), 2)  # máx +4 por extorsión
+            breakdown.append(f"+{2*min(len(extortion_hits),2)} extorsión {extortion_hits[:2]}")
 
-        for v in self.ULTIMATUM:
-            if v in t:
-                points += 2
-                breakdown.append(f"+2 ultimátum '{v}'")
-                break
+        ultimatum_hits = [v for v in self.ULTIMATUM if v in t]
+        if ultimatum_hits:
+            points += 2
+            breakdown.append(f"+2 ultimátum {ultimatum_hits[:1]}")
 
         for v in self.LOCATION_OF_VICTIM:
             if v in t:
@@ -388,8 +395,9 @@ class HybridPipeline:
         conf    = float(probs[max_idx])
 
         # ── Paso 4: RuleBooster (no toca SYMBOLS/THREAT) ─
-        if len(signals) >= 2 and label not in ["HIGH_RISK", "MIXED",
-                                                "SYMBOLS", "THREAT"]:
+        if (len(signals) >= 2 
+            and label not in ["HIGH_RISK", "MIXED", "SYMBOLS", "THREAT"]
+            and conf < 0.75):   # solo boost si el ML no está seguro
             label = "MIXED"
             conf  = min(conf + 0.1, 1.0)
 
@@ -409,10 +417,10 @@ class HybridPipeline:
 def build_ml_pipeline(le):
     class_weights = {
         le.transform(["SAFE"])[0]       : 1.0,
-        le.transform(["SYMBOLS"])[0]    : 1.0,
+        le.transform(["SYMBOLS"])[0]    : 1.5,
         le.transform(["BELONGING"])[0]  : 2.0,
-        le.transform(["HIGH_RISK"])[0]  : 4.0,  # Subimos de 2.5 a 4.0  para rescatar su Recall
-        le.transform(["MIXED"])[0]      : 2.5,
+        le.transform(["HIGH_RISK"])[0]  : 3.0,  
+        le.transform(["MIXED"])[0]      : 1.8,
         le.transform(["BULLYING"])[0]   : 2.5,  # Bajamos de 4.0 a 2.5 para mejorar su Precisión
         le.transform(["THREAT"])[0]     : 3.0,  # Bajamos de 5.0 a 3.0 (dejamos que ThreatRuler haga el trabajo pesado)
     }
@@ -440,7 +448,7 @@ def build_ml_pipeline(le):
         ('classifier', LogisticRegression(
             max_iter=2000,
             class_weight=class_weights,
-            C=5.0,
+            C=3.0,
             solver='lbfgs'
         ))
     ])
@@ -578,10 +586,21 @@ if __name__ == "__main__":
 
     print("\n--- PRUEBAS DE INFERENCIA ---")
     test_phrases = [
-        "Viva la maña arriba la cha🍕",
-        "Aqui te vamos a apreciar",
-        "Pero no le digas a nadie",
-        "Unete a la cha🍕"
+        # símbolos
+        "Puro 🍕 reportando, manda dm para jale 💰",
+        "Hola mamá, ya voy para la casa",
+        "Aquí somos familia 🐔 nadie te deja solo carnal",
+        "🍕 presente",
+        "NG activo 🐔",
+        # amenazas
+        "te voy a picar si no me das el celular ahorita",
+        "cobro de piso, pagas o no amaneces",
+        "ya te tenemos ubicado, un movimiento en falso y te levantamos",
+        "una llamada más a la placa y te mueres",
+        # bullying
+        "te vamos a funar en twitter por ridículo",
+        "pasa el pack o lo invento y te quemo de todos modos",
+        "voy a hacer un hilo contando toda la mierda que eres",
     ]
 
     for phrase in test_phrases:

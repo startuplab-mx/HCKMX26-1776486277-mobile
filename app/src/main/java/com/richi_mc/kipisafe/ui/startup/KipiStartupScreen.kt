@@ -47,6 +47,7 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import com.richi_mc.kipisafe.R
+import com.richi_mc.kipisafe.data.local.AuthManager
 import com.richi_mc.kipisafe.data.model.ManualAlertRequest
 import com.richi_mc.kipisafe.data.remote.RetrofitClient
 import com.richi_mc.kipisafe.service.KipiForegroundService
@@ -55,6 +56,7 @@ import com.richi_mc.kipisafe.util.isNotificationServiceEnabled
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import org.koin.compose.koinInject
 
 @Composable
 fun KipiStartupScreen(activity: ComponentActivity) {
@@ -62,6 +64,7 @@ fun KipiStartupScreen(activity: ComponentActivity) {
     val coroutineScope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
     val context = LocalContext.current
+    val authManager: AuthManager = koinInject()
 
     var isVerifying by remember { mutableStateOf(true) }
     var isSendingAlert by remember { mutableStateOf(false) }
@@ -205,7 +208,9 @@ fun KipiStartupScreen(activity: ComponentActivity) {
                         isSendingAlert = true
                         coroutineScope.launch {
                             try {
+                                val authHeader = "Device ${authManager.getApiKey()}"
                                 val response = RetrofitClient.api.sendManualAlert(
+                                    authHeader,
                                     ManualAlertRequest("123e4567-e89b-12d3-a456-426614174000")
                                 )
                                 withContext(Dispatchers.Main) {

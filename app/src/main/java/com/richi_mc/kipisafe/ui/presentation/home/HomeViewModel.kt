@@ -8,9 +8,11 @@ import android.content.pm.PackageManager
 import android.os.Build
 import android.provider.Settings
 import android.text.TextUtils
+import android.util.Log
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.richi_mc.kipisafe.data.local.AuthManager
 import com.richi_mc.kipisafe.data.model.ManualAlertRequest
 import com.richi_mc.kipisafe.data.remote.RetrofitClient
 import com.richi_mc.kipisafe.service.KipiForegroundService
@@ -26,7 +28,8 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 class HomeViewModel(
-    private val context: Context
+    private val context: Context,
+    private val authManager: AuthManager
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(HomeUiState())
@@ -68,8 +71,12 @@ class HomeViewModel(
         _uiState.update { it.copy(isSendingAlert = true, showConfirmHelpDialog = false) }
         viewModelScope.launch {
             try {
+                // Header corregido de "Device" a "Bearer" para endpoints de alerta manual
+                val authHeader = "Bearer ${authManager.getApiKey()}"
+                Log.e("KipiSafe", "Token: $authHeader")
                 val response = RetrofitClient.api.sendManualAlert(
-                    ManualAlertRequest("123e4567-e89b-12d3-a456-426614174000")
+                    authHeader,
+                    ManualAlertRequest(minor_id = authManager.getMinorId() ?: "")
                 )
                 withContext(Dispatchers.Main) {
                     _uiState.update { it.copy(isSendingAlert = false) }

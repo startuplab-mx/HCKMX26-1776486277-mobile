@@ -25,7 +25,7 @@ android {
         buildConfigField(
             "String",
             "API_BASE_URL",
-            "\"https://your-backend.example.com/\"",
+            "\"https://kipi-server-production.up.railway.app/\"",
         )
     }
 
@@ -66,6 +66,7 @@ dependencies {
     implementation(libs.androidx.compose.material3)
     implementation(libs.androidx.compose.material.icons.extended)
     implementation(libs.androidx.compose.ui.text.google.fonts)
+    implementation(libs.androidx.security.crypto)
 
 
     implementation(libs.koin.core)

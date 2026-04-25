@@ -2,10 +2,12 @@ package com.richi_mc.kipisafe.di
 
 import com.google.gson.GsonBuilder
 import com.richi_mc.kipisafe.BuildConfig
+import com.richi_mc.kipisafe.data.local.AuthManager
 import com.richi_mc.kipisafe.data.remote.KipiApiService
 import com.richi_mc.kipisafe.data.stats.StatsDataSource
 import com.richi_mc.kipisafe.ui.presentation.home.HomeViewModel
 import com.richi_mc.kipisafe.ui.presentation.metrics.MetricsViewModel
+import com.richi_mc.kipisafe.ui.presentation.pairing.PairingViewModel
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
 import org.koin.android.ext.koin.androidContext
@@ -18,10 +20,21 @@ import java.util.concurrent.TimeUnit
 val networkModule = module {
 
     single {
+        val authManager: AuthManager = get()
         val clientBuilder = OkHttpClient.Builder()
             .connectTimeout(30, TimeUnit.SECONDS)
             .readTimeout(30, TimeUnit.SECONDS)
             .writeTimeout(30, TimeUnit.SECONDS)
+            .addInterceptor { chain ->
+                val original = chain.request()
+                val requestBuilder = original.newBuilder()
+                
+                authManager.getApiKey()?.let { token ->
+                    requestBuilder.header("Authorization", "Bearer $token")
+                }
+                
+                chain.proceed(requestBuilder.build())
+            }
 
         if (BuildConfig.DEBUG) {
             val logging = HttpLoggingInterceptor().apply {
@@ -44,6 +57,9 @@ val networkModule = module {
     }
 }
 val dataModule = module {
+    single {
+        AuthManager(context = androidContext())
+    }
     factory {
         StatsDataSource(context = androidContext())
     }
@@ -53,7 +69,10 @@ val viewModelModule = module {
         MetricsViewModel(context = androidContext(), get())
     }
     viewModel {
-        HomeViewModel(context = androidContext())
+        HomeViewModel(context = androidContext(), get())
+    }
+    viewModel {
+        PairingViewModel(get(), get())
     }
 }
 

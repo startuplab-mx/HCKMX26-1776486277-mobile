@@ -4,11 +4,13 @@ import android.accessibilityservice.AccessibilityService
 import android.util.Log
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
+import com.richi_mc.kipisafe.data.local.AuthManager
 import com.richi_mc.kipisafe.data.local.KipiLocalInference
 import com.richi_mc.kipisafe.data.model.NotificationAnalyzeRequest
 import com.richi_mc.kipisafe.data.remote.RetrofitClient
 import com.richi_mc.kipisafe.ui.overlay.KipiOverlayManager
 import kotlinx.coroutines.*
+import org.koin.android.ext.android.inject
 import java.util.Locale
 import java.util.concurrent.ConcurrentHashMap
 
@@ -19,6 +21,7 @@ class ParentalControlAccessibilityService : AccessibilityService() {
     private val serviceScope = CoroutineScope(Dispatchers.Default + serviceJob)
     private val appCategoryCache = mutableMapOf<String, Boolean>()
     private lateinit var localInference: KipiLocalInference
+    private val authManager: AuthManager by inject()
 
     /** Evita re-analizar el mismo texto en ráfaga (debounce). */
     private val processedCache = ConcurrentHashMap<String, Long>()
@@ -142,7 +145,10 @@ class ParentalControlAccessibilityService : AccessibilityService() {
                 text_preview = textPreview
             )
             try {
-                val response = RetrofitClient.api.analyzeNotifications(request)
+                // Recuerda usar "Bearer <api_key>" en el authHeader
+                val authHeader = "Bearer ${authManager.getApiKey()}"
+                Log.e(TAG, "Token: $authHeader")
+                val response = RetrofitClient.api.analyzeNotifications(authHeader, request)
                 if (response.isSuccessful) {
                     val body = response.body()
                     val riskLevel = body?.analysis?.risk_level ?: 0

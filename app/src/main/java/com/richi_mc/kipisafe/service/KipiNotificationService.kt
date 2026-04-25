@@ -8,6 +8,7 @@ import android.os.Looper
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
 import android.util.Log
+import com.richi_mc.kipisafe.data.local.AuthManager
 import com.richi_mc.kipisafe.data.local.KipiLocalInference
 import com.richi_mc.kipisafe.data.model.NotificationAnalyzeRequest
 import com.richi_mc.kipisafe.data.remote.RetrofitClient
@@ -19,6 +20,7 @@ import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import com.richi_mc.kipisafe.ui.overlay.KipiOverlayManager
+import org.koin.android.ext.android.inject
 import java.util.Locale
 import java.util.concurrent.ConcurrentHashMap
 
@@ -29,6 +31,7 @@ class KipiNotificationService : NotificationListenerService() {
 
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private lateinit var localInference: KipiLocalInference
+    private val authManager: AuthManager by inject()
 
     /** Evita re-analizar el mismo preview en ráfaga (actualizaciones de progreso, grupos). */
     private val processedCache = ConcurrentHashMap<String, Long>()
@@ -101,101 +104,106 @@ class KipiNotificationService : NotificationListenerService() {
 
     private suspend fun runAnalyzeRequest(appSource: String, textPreview: String) {
         val hasCriticalEmoji = CRITICAL_EMOJIS.any { textPreview.contains(it) }
-        val emojiWarrantsIntervention =
-            hasCriticalEmoji && hasSubstantiveUserContentForCriticalEmoji(textPreview)
+        val emojiWarrantsIntervention = hasCriticalEmoji && hasSubstantiveUserContentForCriticalEmoji(textPreview)
         val result = localInference.analyzeTextLocally(textPreview)
 
+        // Variables para alimentar el DTO basado en el análisis local
+        var localRiskLevel = 1
+        var kipiMessage = ""
+        var forceCloud = false
+
+        // 1. EVALUACIÓN Y ACCIÓN LOCAL (Inmediata)
         when {
-            // 1. Amenazas directas (Prioridad Máxima)
             result.label == "THREAT" && result.confidence > THREAT_CONFIDENCE_THRESHOLD -> {
-                showCriticalOverlay(
-                    "¡ALERTA! Kipi detectó una amenaza directa. Por favor, ponte en un lugar seguro y muestra este mensaje a un adulto de confianza inmediatamente."
-                )
-                return
+                localRiskLevel = 3
+                kipiMessage = "¡ALERTA! Kipi detectó una amenaza directa. Por favor, ponte en un lugar seguro y muestra este mensaje a un adulto de confianza inmediatamente."
+                showCriticalOverlay(kipiMessage)
             }
-
-            // 2. Reclutamiento / Riesgo Alto
             result.label == "HIGH_RISK" && result.confidence > HIGH_RISK_CONFIDENCE_THRESHOLD -> {
-                showCriticalOverlay(
-                    "¡ALERTA DE SEGURIDAD! He detectado un intento de reclutamiento o códigos peligrosos. No compartas tus datos, ni fotos, ni tu ubicación."
-                )
-                return
+                localRiskLevel = 3
+                kipiMessage = "¡ALERTA DE SEGURIDAD! He detectado un intento de reclutamiento o códigos peligrosos. No compartas tus datos, ni fotos, ni tu ubicación."
+                showCriticalOverlay(kipiMessage)
             }
-
-            // 3. Ciberacoso / Bullying
             result.label == "BULLYING" && result.confidence > BULLYING_CONFIDENCE_THRESHOLD -> {
-                showWarningOverlay(
-                    "Kipi detectó mensajes ofensivos o ciberacoso. Nadie tiene derecho a tratarte así. Recuerda que no es tu culpa; considera bloquear este contacto y hablar con alguien."
-                )
-                return
+                localRiskLevel = 2
+                kipiMessage = "Kipi detectó mensajes ofensivos o ciberacoso. Nadie tiene derecho a tratarte así. Recuerda que no es tu culpa; considera bloquear este contacto y hablar con alguien."
+                showWarningOverlay(kipiMessage)
             }
-
-            // 4. Pertenencia / Aislamiento (Grooming)
             result.label == "BELONGING" && result.confidence > BELONGING_CONFIDENCE_THRESHOLD -> {
-                showWarningOverlay(
-                    "Kipi detectó lenguaje inusual. Recuerda que no debes confiar en personas que intentan alejarte de tu familia o hacerte guardar secretos."
-                )
-                // Aquí no ponemos 'return' por si queremos que el backend también registre el evento
+                localRiskLevel = 2
+                kipiMessage = "Kipi detectó lenguaje inusual. Recuerda que no debes confiar en personas que intentan alejarte de tu familia o hacerte guardar secretos."
+                showWarningOverlay(kipiMessage)
             }
-
-            // 5. Símbolos (Silencioso, solo log)
             result.label == "SYMBOLS" && result.confidence > SYMBOLS_CONFIDENCE_THRESHOLD -> {
-                showWarningOverlay("Kipi detectó símbolos con notación dudosa. Consulta con un adulto antes de contestar.")
-                return
+                localRiskLevel = 1
+                kipiMessage = "Kipi detectó símbolos con notación dudosa. Consulta con un adulto antes de contestar."
+                showWarningOverlay(kipiMessage)
+            }
+            result.label == "MIXED" || result.confidence < CLOUD_FALLBACK_CONFIDENCE_THRESHOLD -> {
+                // Incertidumbre local: Dejamos riesgo en 1 o 2, pero forzamos el análisis de Gemini en la nube
+                localRiskLevel = 1
+                forceCloud = true
             }
         }
 
-        // MIXED = señales contradictorias: siempre pedir segunda opinión al backend, sin umbral de confianza.
-        if (result.label == "MIXED" || result.confidence < CLOUD_FALLBACK_CONFIDENCE_THRESHOLD) {
-            val request = NotificationAnalyzeRequest(
-                minor_id = MINOR_ID_PROTOTYPE,
-                app_source = appSource,
-                text_preview = textPreview,
-            )
-            try {
-                val response = RetrofitClient.api.analyzeNotifications(request)
-                val body = if (response.isSuccessful) response.body() else null
-                val apiRiskLevel = body?.analysis?.risk_level ?: 0
+        // 2. CONSTRUIR REQUEST PARA EL BACKEND
+        // Nota: Aunque ya mostramos alerta local, mandamos el request para registrar el evento
+        val request = NotificationAnalyzeRequest(
+            minor_id = MINOR_ID_PROTOTYPE, // Idealmente ya no usar prototipo, sino el id del AuthManager
+            app_source = appSource,
+            text_preview = textPreview,
+            risk_level = localRiskLevel,
+            confidence_score = result.confidence,
+            sensitive_data_flag = emojiWarrantsIntervention,
+            kipi_response = kipiMessage.ifEmpty { null },
+            force_cloud = forceCloud || emojiWarrantsIntervention // Forzamos nube si hay dudas o emojis críticos
+        )
 
-                if (emojiWarrantsIntervention || apiRiskLevel >= RISK_LOG_THRESHOLD) {
-                    val apiResponseText = body?.analysis?.kipi_response.orEmpty()
+        // 3. CONSUMO DE API Y SEGUNDA OPINIÓN (Nube)
+        try {
+            // Recuerda usar "Bearer <api_key>" en el authHeader
+            val authHeader = "Bearer ${authManager.getApiKey()}"
+            Log.e(TAG, "Token: $authHeader")
+            val response = RetrofitClient.api.analyzeNotifications(authHeader, request)
+
+            if (response.isSuccessful) {
+                val body = response.body()
+                val apiRiskLevel = body?.analysis?.risk_level ?: 0
+                val apiResponseText = body?.analysis?.kipi_response.orEmpty()
+
+                // Si dependíamos de la nube (forceCloud) o la nube elevó el nivel de riesgo por encima del local
+                if (forceCloud || apiRiskLevel > localRiskLevel) {
+
                     val isRecruitmentRelated = emojiWarrantsIntervention ||
-                        apiResponseText.contains("reclutamiento", ignoreCase = true) ||
-                        apiResponseText.contains("códigos", ignoreCase = true)
+                            apiResponseText.contains("reclutamiento", ignoreCase = true) ||
+                            apiResponseText.contains("códigos", ignoreCase = true)
 
                     if (isRecruitmentRelated) {
-                        Log.w(
-                            "KipiSafe",
-                            "INTERVENCIÓN POR POSIBLE CAPTACIÓN | app=$appSource | emoji=$emojiWarrantsIntervention",
-                        )
+                        Log.w("KipiSafe", "INTERVENCIÓN NUBE POR POSIBLE CAPTACIÓN | app=$appSource")
                     }
 
                     val finalMessage = if (emojiWarrantsIntervention) {
-                        "¡Cuidado! He detectado códigos de alto riesgo. No compartas tu ubicación ni datos personales. Si alguien te pide encontrarte o hacer algo secreto, avisa a un adulto de confianza inmediatamente."
+                        "¡Cuidado! He detectado códigos de alto riesgo. No compartas tu ubicación ni datos personales..."
                     } else {
                         apiResponseText.ifEmpty { "He detectado una situación inusual. Ten cuidado con la información que compartes." }
                     }
 
-                    Log.w(TAG, "Alerta Kipi (risk=$apiRiskLevel, emoji=$emojiWarrantsIntervention): $finalMessage")
+                    Log.w(TAG, "Alerta Secundaria (Cloud) Kipi (risk=$apiRiskLevel): $finalMessage")
                     withContext(Dispatchers.Main) {
                         KipiOverlayManager(applicationContext).showKipiAdvice(finalMessage)
                     }
-                } else if (!response.isSuccessful) {
-                    Log.e(TAG, "API analyze HTTP ${response.code()}: ${response.errorBody()?.string().orEmpty()}")
                 }
-            } catch (e: Exception) {
-                Log.e(TAG, "Error de red o servidor: ${e.message}")
-                Log.w(TAG, "Backend no disponible, confiando en análisis local")
+            } else {
+                Log.e(TAG, "API analyze HTTP ${response.code()}: ${response.errorBody()?.string().orEmpty()}")
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error de red o servidor: ${e.message}")
+            Log.w(TAG, "Backend no disponible, confiando 100% en el escudo local")
 
-                if (emojiWarrantsIntervention) {
-                    Log.w(
-                        "KipiSafe",
-                        "INTERVENCIÓN POR POSIBLE CAPTACIÓN (Fallback Local por Emoji) | app=$appSource",
-                    )
-                    showCriticalOverlay(
-                        "¡Alerta de seguridad! He detectado códigos peligrosos. Por favor, no compartas tu ubicación ni aceptes invitaciones de desconocidos.",
-                    )
-                }
+            // Si falló la red y el análisis local dudaba, pero detectamos emojis de emergencia,
+            // garantizamos mostrar algo como fallback.
+            if (forceCloud && emojiWarrantsIntervention) {
+                showCriticalOverlay("¡Alerta de seguridad! He detectado códigos peligrosos. Por favor, no compartas tu ubicación...")
             }
         }
     }

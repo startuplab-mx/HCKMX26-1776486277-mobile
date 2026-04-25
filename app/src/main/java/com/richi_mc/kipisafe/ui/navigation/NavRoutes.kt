@@ -10,3 +10,6 @@ object Stats
 
 @Serializable
 object Settings
+
+@Serializable
+object Pairing

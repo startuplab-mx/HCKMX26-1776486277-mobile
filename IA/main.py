@@ -12,7 +12,7 @@ from sklearn.metrics import classification_report
 from scipy.sparse import hstack, csr_matrix
 import os
 
-version = "v3"
+version = "v4"
 
 # ─────────────────────────────────────────────
 # 1. LIMPIEZA DE TEXTO
@@ -411,10 +411,10 @@ def build_ml_pipeline(le):
         le.transform(["SAFE"])[0]       : 1.0,
         le.transform(["SYMBOLS"])[0]    : 1.5,
         le.transform(["BELONGING"])[0]  : 2.0,
-        le.transform(["HIGH_RISK"])[0]  : 2.5,
+        le.transform(["HIGH_RISK"])[0]  : 3.5,  # Subimos de 2.5 a 3.5 para rescatar su Recall
         le.transform(["MIXED"])[0]      : 1.8,
-        le.transform(["BULLYING"])[0]   : 4.0,   
-        le.transform(["THREAT"])[0]     : 5.0,  
+        le.transform(["BULLYING"])[0]   : 2.5,  # Bajamos de 4.0 a 2.5 para mejorar su Precisión
+        le.transform(["THREAT"])[0]     : 3.0,  # Bajamos de 5.0 a 3.0 (dejamos que ThreatRuler haga el trabajo pesado)
     }
 
     union = FeatureUnion([

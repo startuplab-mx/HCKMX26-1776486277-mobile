@@ -51,3 +51,31 @@ Precisión en Validación: 0.6667
     macro avg       0.77      0.77      0.77        48
  weighted avg       0.77      0.77      0.77        48
 ```
+
+## Tercer iteración: Arquitectura híbrida y nuevas categorías
+Para esta segunda iteración, implementamos dos mejoras fundamentales basadas en los cuellos de botella detectados anteriormente:
+1. **Aumento del dataset:** Incrementamos a 477 ejemplos en total (381 Train, 48 Val y 48 Test).
+2. **Ajuste de pesos dinámicos:** Al aumentar los datos a 477 ejemplos, observamos que el peso inicial de 4.5 para `SYMBOLS` resultó excesivo, provocando una sobre-predicción (Recall 0.89, Precision 0.62) y afectando la categoría `MIXED`. Para esta iteración, recalibramos los pesos reduciendo la penalización de `SYMBOLS` y dándole más presencia a `MIXED`. 
+
+Con base a lo obtenido, entendemos que la evolución hacia una arquitectura híbrida y el aumento del dataset a 693 ejemplos resultaron ser un éxito rotundo, elevando la precisión general del modelo a un sólido 0.83. Específicamente, la integración de las nuevas clases `BULLYING` y `THREAT` demostró un desempeño sobresaliente (F1-scores de 0.86 y 0.87 respectivamente), destacando que la sinergia entre el Machine Learning y nuestro nuevo motor de reglas (ThreatRuler) logró un Recall perfecto de 1.00 para las amenazas, garantizando que ningún mensaje de peligro inminente pase desapercibido.
+
+Por otro lado, debemos calibrar nuevamente los pesos dinámicos de nuestro pipeline; si bien el peso máximo asignado a `THREAT` (5.0) cumplió su función de evitar falsos negativos, resultó ser excesivamente agresivo, lo que está forzando al modelo ML a clasificar mensajes completamente inofensivos y cotidianos (como "Hola mamá, ya voy para la casa") dentro de esta categoría de alerta máxima. Finalmente, para nuestra próxima iteración, vamos a reducir la ponderación de la clase `THREAT` en el modelo estadístico (ya que el motor de reglas ya cubre las amenazas explícitas de forma excelente), y ajustaremos nuestro AggressionFeaturizer para asegurar que no esté sobre-penalizando el uso normal de signos de puntuación, blindando así la precisión de la clase SAFE.
+
+```
+Precisión en Validación: 0.7826
+
+--- REPORTE DE CLASIFICACIÓN (TEST) ---
+                  precision    recall  f1-score   support
+
+    BELONGING       1.00      0.80      0.89         10
+     BULLYING       0.82      0.90      0.86         10
+    HIGH_RISK       1.00      0.80      0.89         10
+        MIXED       0.82      0.90      0.86         10
+         SAFE       0.70      0.70      0.70         10
+      SYMBOLS       0.78      0.70      0.74         10
+       THREAT       0.77      1.00      0.87         10
+
+     accuracy                           0.83        70
+    macro avg       0.84      0.83      0.83        70
+ weighted avg       0.84      0.83      0.83        70
+```

@@ -19,7 +19,8 @@ fun HomeDialogs(
     onDismissKipiListener: () -> Unit,
     onDismissOverlay: () -> Unit,
     onDismissConfirmHelp: () -> Unit,
-    onConfirmHelp: () -> Unit
+    onConfirmHelp: () -> Unit,
+    onDismissAccessibility: () -> Unit
 ) {
     val context = LocalContext.current
 
@@ -76,6 +77,36 @@ fun HomeDialogs(
             },
             dismissButton = {
                 TextButton(onClick = onDismissOverlay) {
+                    Text(stringResource(R.string.kipi_dialog_not_now))
+                }
+            },
+        )
+    }
+
+    if (uiState.showAccessibilityDialog &&
+        uiState.postNotificationsGranted &&
+        uiState.listenerEnabled &&
+        uiState.overlayGranted &&
+        !uiState.accessibilityEnabled
+    ) {
+        AlertDialog(
+            onDismissRequest = onDismissAccessibility,
+            title = { Text(text = stringResource(R.string.kipi_dialog_title)) },
+            text = {
+                Text(text = "Kipi necesita el permiso de Accesibilidad para protegerte mientras usas redes sociales y apps de video. Esto permite a Kipi detectar situaciones de riesgo en tiempo real.")
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        context.startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
+                        onDismissAccessibility()
+                    },
+                ) {
+                    Text(stringResource(R.string.kipi_dialog_open_settings))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = onDismissAccessibility) {
                     Text(stringResource(R.string.kipi_dialog_not_now))
                 }
             },

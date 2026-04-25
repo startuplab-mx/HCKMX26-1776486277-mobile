@@ -106,6 +106,10 @@ class HomeViewModel(
         _uiState.update { it.copy(showOverlayDialog = show) }
     }
 
+    fun setShowAccessibilityDialog(show: Boolean) {
+        _uiState.update { it.copy(showAccessibilityDialog = show) }
+    }
+
     fun clearSnackbarMessage() {
         _uiState.update { it.copy(snackbarMessage = null) }
     }

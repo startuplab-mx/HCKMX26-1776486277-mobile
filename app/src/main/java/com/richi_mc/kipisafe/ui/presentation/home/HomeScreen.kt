@@ -5,11 +5,15 @@ import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
@@ -60,16 +64,33 @@ fun HomeScreen(
     Scaffold(
         modifier = Modifier.fillMaxSize(),
         containerColor = MaterialTheme.colorScheme.background,
-        snackbarHost = { SnackbarHost(snackbarHostState) }
+        snackbarHost = { SnackbarHost(snackbarHostState) },
+        contentWindowInsets = WindowInsets(top = 0.dp, bottom = 0.dp),
+        floatingActionButton = {
+            // Extended FAB para Ayuda Urgente, centrado y estilizado
+            ExtendedFloatingActionButton(
+                onClick = { viewModel.setShowConfirmHelpDialog(true) },
+                containerColor = MaterialTheme.colorScheme.error,
+                contentColor = MaterialTheme.colorScheme.onError,
+                shape = RoundedCornerShape(20.dp)
+            ) {
+                Icon(Icons.Default.NotificationsActive, contentDescription = null)
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    "Ayuda Urgente",
+                    fontWeight = FontWeight.ExtraBold
+                )
+            }
+        },
     ) { innerPadding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
-                .padding(32.dp),
+                .padding(horizontal = 32.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            Spacer(modifier = Modifier.weight(0.5f))
+            Spacer(modifier = Modifier.weight(0.4f))
             
             HomeHeader()
 
@@ -81,7 +102,6 @@ fun HomeScreen(
 
             HomeActions(
                 uiState = uiState,
-                onHelpClick = { viewModel.setShowConfirmHelpDialog(true) },
                 onGrantPermissionsClick = {
                     when {
                         Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && !uiState.postNotificationsGranted -> {
@@ -95,6 +115,10 @@ fun HomeScreen(
                         Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !uiState.overlayGranted -> {
                             viewModel.setShowOverlayDialog(true)
                         }
+                        
+                        !uiState.accessibilityEnabled -> {
+                            viewModel.setShowAccessibilityDialog(true)
+                        }
 
                         else -> {
                             viewModel.refreshPermissionState()
@@ -103,7 +127,7 @@ fun HomeScreen(
                 }
             )
             
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.weight(0.6f))
         }
 
         HomeDialogs(
@@ -111,7 +135,8 @@ fun HomeScreen(
             onDismissKipiListener = { viewModel.setShowKipiListenerDialog(false) },
             onDismissOverlay = { viewModel.setShowOverlayDialog(false) },
             onDismissConfirmHelp = { viewModel.setShowConfirmHelpDialog(false) },
-            onConfirmHelp = { viewModel.sendManualAlert() }
+            onConfirmHelp = { viewModel.sendManualAlert() },
+            onDismissAccessibility = { viewModel.setShowAccessibilityDialog(false) }
         )
     }
 }

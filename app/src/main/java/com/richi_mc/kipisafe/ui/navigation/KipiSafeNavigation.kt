@@ -4,6 +4,7 @@ import androidx.annotation.DrawableRes
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -52,7 +53,7 @@ fun KipiSafeNavigation() {
     )
 
     Scaffold(
-        contentWindowInsets = WindowInsets(top = 0.dp),
+        contentWindowInsets = WindowInsets(top = 0.dp, bottom = 0.dp),
         bottomBar = {
             // Contenedor de la barra para aplicar el diseño flotante y redondeado
             Surface(
@@ -70,7 +71,8 @@ fun KipiSafeNavigation() {
             ) {
                 NavigationBar(
                     containerColor = Color.Transparent, // El fondo lo da el Surface
-                    tonalElevation = 0.dp
+                    tonalElevation = 8.dp,
+                    modifier = Modifier.height(56.dp)
                 ) {
                     navigationItems.forEach { item ->
                         val isSelected = currentDestination?.hasRoute(item.route::class) == true
@@ -95,11 +97,10 @@ fun KipiSafeNavigation() {
                                 Icon(
                                     painter = painterResource(id = item.icon),
                                     contentDescription = item.title,
-                                    modifier = Modifier.size(32.dp),
+                                    modifier = Modifier.size(24.dp),
                                     tint = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
                                 )
-                            },
-                            label = { }
+                            }
                         )
                     }
                 }

@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
+    android:orientation="horizontal"
+    android:padding="8dp">
+
+    <ImageView
+        android:id="@+id/kipi_bubble"
+        android:layout_width="48dp"
+        android:layout_height="48dp"
+        android:src="@mipmap/ic_launcher_round" />
+
+    <RelativeLayout
+        android:id="@+id/kipi_message_container"
+        android:layout_width="250dp"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="8dp"
+        android:background="@drawable/bg_kipi_message"
+        android:padding="12dp"
+        android:visibility="gone">
+
+        <TextView
+            android:id="@+id/text_kipi_advice"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_toStartOf="@id/button_dismiss_message"
+            android:textColor="@color/black"
+            android:textSize="14sp"
+            tools:text="¡Hola! Soy Kipi. Ten cuidado con este mensaje." />
+
+        <ImageButton
+            android:id="@+id/button_dismiss_message"
+            android:layout_width="24dp"
+            android:layout_height="24dp"
+            android:layout_alignParentEnd="true"
+            android:layout_alignParentTop="true"
+            android:background="?android:attr/selectableItemBackgroundBorderless"
+            android:contentDescription="Cerrar mensaje"
+            android:src="@android:drawable/ic_menu_close_clear_cancel"
+            android:tint="@color/purple_500" />
+    </RelativeLayout>
+
+</LinearLayout>

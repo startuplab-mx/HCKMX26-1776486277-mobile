@@ -1,45 +1,71 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="wrap_content"
     android:layout_height="wrap_content"
+    android:gravity="center_vertical"
     android:orientation="horizontal"
     android:padding="8dp">
 
-    <ImageView
-        android:id="@+id/kipi_bubble"
-        android:layout_width="48dp"
-        android:layout_height="48dp"
-        android:src="@mipmap/ic_launcher_round" />
+    <!-- Burbuja 100% Circular usando CardView para estabilidad en servicios -->
+    <androidx.cardview.widget.CardView
+        android:id="@+id/kipi_bubble_container"
+        android:layout_width="56dp"
+        android:layout_height="56dp"
+        app:cardCornerRadius="28dp"
+        app:cardElevation="4dp"
+        app:cardBackgroundColor="#00687B"
+        app:cardPreventCornerOverlap="false">
 
-    <RelativeLayout
+        <ImageView
+            android:id="@+id/kipi_bubble"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:padding="12dp"
+            android:scaleType="centerInside"
+            android:src="@mipmap/ic_launcher_round"
+            android:contentDescription="Kipi Bubble" />
+    </androidx.cardview.widget.CardView>
+
+    <!-- Contenedor de Mensaje -->
+    <androidx.cardview.widget.CardView
         android:id="@+id/kipi_message_container"
-        android:layout_width="250dp"
+        android:layout_width="260dp"
         android:layout_height="wrap_content"
-        android:layout_marginStart="8dp"
-        android:background="@drawable/bg_kipi_message"
-        android:padding="12dp"
-        android:visibility="gone">
+        android:layout_marginStart="12dp"
+        android:visibility="gone"
+        app:cardBackgroundColor="#F5FAFC"
+        app:cardCornerRadius="20dp"
+        app:cardElevation="6dp"
+        tools:visibility="visible">
 
-        <TextView
-            android:id="@+id/text_kipi_advice"
+        <RelativeLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_toStartOf="@id/button_dismiss_message"
-            android:textColor="@color/black"
-            android:textSize="14sp"
-            tools:text="¡Hola! Soy Kipi. Ten cuidado con este mensaje." />
+            android:padding="16dp">
 
-        <ImageButton
-            android:id="@+id/button_dismiss_message"
-            android:layout_width="24dp"
-            android:layout_height="24dp"
-            android:layout_alignParentEnd="true"
-            android:layout_alignParentTop="true"
-            android:background="?android:attr/selectableItemBackgroundBorderless"
-            android:contentDescription="Cerrar mensaje"
-            android:src="@android:drawable/ic_menu_close_clear_cancel"
-            android:tint="@color/purple_500" />
-    </RelativeLayout>
+            <TextView
+                android:id="@+id/text_kipi_advice"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginEnd="8dp"
+                android:layout_toStartOf="@id/button_dismiss_message"
+                android:fontFamily="sans-serif-medium"
+                android:textColor="#171C1E"
+                android:textSize="14sp"
+                tools:text="Kipi ha detectado contenido sensible." />
+
+            <ImageButton
+                android:id="@+id/button_dismiss_message"
+                android:layout_width="24dp"
+                android:layout_height="24dp"
+                android:layout_alignParentEnd="true"
+                android:background="?android:attr/selectableItemBackgroundBorderless"
+                android:src="@android:drawable/ic_menu_close_clear_cancel"
+                app:tint="#00687B"
+                android:contentDescription="Close" />
+        </RelativeLayout>
+    </androidx.cardview.widget.CardView>
 
 </LinearLayout>

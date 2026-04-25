@@ -8,99 +8,100 @@ import kotlinx.coroutines.*
 
 class ParentalControlAccessibilityService : AccessibilityService() {
 
-    // Corrutines in foreground service.
     private val serviceJob = SupervisorJob()
     private val serviceScope = CoroutineScope(Dispatchers.Default + serviceJob)
     private val appCategoryCache = mutableMapOf<String, Boolean>()
+    
+    private var lastAnalyzedText = ""
+    private var analysisJob: Job? = null
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
         if (event == null) return
-
         val packageName = event.packageName?.toString() ?: return
 
-        // Solo procesar si es una red social o app de mensajería
         if (!isSocialOrMessagingApp(packageName)) return
 
-        // Filter events when screen changes or some text are writed.
-        if (event.eventType == AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED ||
-            event.eventType == AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED) {
+        // Solo iniciamos el ciclo de análisis si no hay uno activo para esta app
+        if (analysisJob == null || analysisJob?.isCompleted == true) {
+            startAnalysisCycle(packageName)
+        }
+    }
 
-            val rootNode = rootInActiveWindow ?: return
-            val packageName = event.packageName?.toString() ?: "Paquete Desconocido"
+    private fun startAnalysisCycle(packageName: String) {
+        analysisJob = serviceScope.launch {
+            while (isActive) {
+                val rootNode = rootInActiveWindow
+                if (rootNode != null) {
+                    val extractedText = StringBuilder()
+                    extractLeafText(rootNode, extractedText)
+                    rootNode.recycle()
 
-            serviceScope.launch {
-                val extractedText = extractTextFromNode(rootNode)
+                    val cleanText = extractedText.toString().trim().replace("\\s+".toRegex(), " ")
+                    
+                    if (cleanText.isNotBlank() && cleanText != lastAnalyzedText) {
+                        lastAnalyzedText = cleanText
+                        
+                        Log.d("AccessibilityExtract", """
+                            
+                            -------------------------
+                            App: ${getAppName(packageName)}
+                            Analisis: "$cleanText"
+                            -------------------------
+                        """.trimIndent())
 
-                rootNode.recycle()
-
-                val cleanText = extractedText.trim()
-                if (cleanText.isNotBlank()) {
-                    // Aquí es donde inyectarías este texto a tu modelo local (Ej. TensorFlow Lite)
-                    Log.d("AccessibilityExtract", "App: $packageName | Texto: $cleanText")
-
-                    // sendToEdgeAI(packageName, cleanText)
+                        analyzeLocal(cleanText, packageName)
+                    }
                 }
+                delay(3000)
             }
         }
     }
 
-    /**
-     * Función recursiva para recorrer el árbol de vistas de la pantalla.
-     * Extrae el texto visible y las descripciones de contenido.
-     */
-    private fun extractTextFromNode(node: AccessibilityNodeInfo?): String {
-        if (node == null) return ""
+    private fun extractLeafText(node: AccessibilityNodeInfo?, outText: StringBuilder) {
+        if (node == null) return
 
-        val stringBuilder = StringBuilder()
-
-        if (!node.text.isNullOrBlank()) {
-            stringBuilder.append(node.text).append(" ")
-        }
-
-        if (!node.contentDescription.isNullOrBlank()) {
-            stringBuilder.append(node.contentDescription).append(" ")
-        }
-
-        for (i in 0 until node.childCount) {
-            val childNode = node.getChild(i)
-            if (childNode != null) {
-                stringBuilder.append(extractTextFromNode(childNode))
-                childNode.recycle()
+        if (node.childCount == 0) {
+            val text = node.text?.toString() ?: node.contentDescription?.toString()
+            if (!text.isNullOrBlank()) {
+                outText.append(text).append(" ")
+            }
+        } else {
+            for (i in 0 until node.childCount) {
+                val child = node.getChild(i)
+                extractLeafText(child, outText)
+                child?.recycle()
             }
         }
+    }
 
-        return stringBuilder.toString()
+    private fun analyzeLocal(text: String, packageName: String) {
+        // Placeholder para integración con IA
+    }
+
+    private fun getAppName(packageName: String): String {
+        return try {
+            val appInfo = packageManager.getApplicationInfo(packageName, 0)
+            packageManager.getApplicationLabel(appInfo).toString()
+        } catch (e: Exception) {
+            packageName.split(".").last().replaceFirstChar { it.uppercase() }
+        }
     }
 
     private fun isSocialOrMessagingApp(packageName: String): Boolean {
-        // 1. Verificación rápida por nombres de paquetes comunes
         val monitoredPackages = setOf(
-            "com.whatsapp",
-            "com.facebook.orca", // Messenger
-            "com.facebook.katana", // Facebook
-            "com.instagram.android",
-            "org.telegram.messenger",
-            "com.twitter.android",
-            "com.snapchat.android",
-            "com.zhiliaoapp.musically", // TikTok
-            "com.google.android.apps.messaging", // Google Messages
-            "com.discord",
-            "com.google.android.youtube", // YouTube
-            "com.netflix.mediaclient",    // Netflix
-            "com.disney.disneyplus",      // Disney+
-            "com.amazon.avod.thirdpartyclient", // Prime Video
-            "tv.twitch.android.app",      // Twitch
-            "com.wbd.stream"              // Max
+            "com.whatsapp", "com.facebook.orca", "com.facebook.katana", 
+            "com.instagram.android", "org.telegram.messenger", "com.twitter.android",
+            "com.snapchat.android", "com.zhiliaoapp.musically", "com.google.android.apps.messaging",
+            "com.discord", "com.google.android.youtube", "com.netflix.mediaclient",
+            "com.disney.disneyplus", "com.amazon.avod.thirdpartyclient", "tv.twitch.android.app",
+            "com.wbd.stream"
         )
         if (monitoredPackages.contains(packageName)) return true
 
-        // 2. Verificación por categoría del sistema (Android 8.0+)
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
             appCategoryCache[packageName]?.let { return it }
-            
             return try {
                 val appInfo = packageManager.getApplicationInfo(packageName, 0)
-                // Se incluye CATEGORY_VIDEO para cubrir otras plataformas de streaming
                 val isMonitored = appInfo.category == android.content.pm.ApplicationInfo.CATEGORY_SOCIAL ||
                                  appInfo.category == android.content.pm.ApplicationInfo.CATEGORY_VIDEO
                 appCategoryCache[packageName] = isMonitored
@@ -109,12 +110,12 @@ class ParentalControlAccessibilityService : AccessibilityService() {
                 false
             }
         }
-
         return false
     }
 
     override fun onInterrupt() {
-        Log.e("AccessibilityExtract", "El servicio de accesibilidad fue interrumpido.")
+        Log.e("AccessibilityExtract", "Servicio interrumpido.")
+        analysisJob?.cancel()
     }
 
     override fun onDestroy() {

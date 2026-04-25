@@ -74,7 +74,6 @@ fun MetricsScreen(
                             .fillMaxWidth()
                             .padding(16.dp)
                             .height(180.dp)
-                            .shadow(8.dp, RoundedCornerShape(24.dp))
                             .clip(RoundedCornerShape(24.dp))
                     ) {
                         Image(
@@ -85,19 +84,7 @@ fun MetricsScreen(
                                 .align(Alignment.Center), // Esto centra la Image dentro del Box
                             contentScale = ContentScale.FillWidth
                         )
-                        // Gradient Overlay for better depth
-                        Box(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .background(
-                                    Brush.verticalGradient(
-                                        colors = listOf(
-                                            androidx.compose.ui.graphics.Color.Transparent,
-                                            androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.4f)
-                                        )
-                                    )
-                                )
-                        )
+
                     }
                 }
 

@@ -68,30 +68,50 @@ fun HomeActions(
         }
 
         // Secondary action for permissions if needed
-        val needsPermissions = !uiState.postNotificationsGranted || 
-                             !uiState.listenerEnabled || 
-                             (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !uiState.overlayGranted)
+        val missingPermissions = mutableListOf<String>().apply {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && !uiState.postNotificationsGranted) add("Notificaciones")
+            if (!uiState.listenerEnabled) add("Lectura de Notificaciones")
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !uiState.overlayGranted) add("Superposición")
+            if (!uiState.accessibilityEnabled) add("Accesibilidad")
+        }
 
-        if (needsPermissions) {
-            OutlinedButton(
-                onClick = onGrantPermissionsClick,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(56.dp),
-                shape = RoundedCornerShape(16.dp),
-                border = androidx.compose.foundation.BorderStroke(
-                    1.dp, 
-                    MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
-                ),
-                colors = ButtonDefaults.outlinedButtonColors(
-                    contentColor = MaterialTheme.colorScheme.primary
-                )
+        if (missingPermissions.isNotEmpty()) {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                Icon(Icons.Default.Security, contentDescription = null)
-                Spacer(Modifier.width(8.dp))
+                OutlinedButton(
+                    onClick = onGrantPermissionsClick,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(56.dp),
+                    shape = RoundedCornerShape(16.dp),
+                    border = androidx.compose.foundation.BorderStroke(
+                        1.dp,
+                        MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
+                    ),
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        contentColor = MaterialTheme.colorScheme.primary
+                    )
+                ) {
+                    Icon(Icons.Default.Security, contentDescription = null)
+                    Spacer(Modifier.width(8.dp))
+                    Text(
+                        stringResource(R.string.kipi_grant_permissions_button),
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
                 Text(
-                    stringResource(R.string.kipi_grant_permissions_button),
-                    fontWeight = FontWeight.Bold
+                    text = if (missingPermissions.size == 1) 
+                        "Falta 1 permiso por conceder" 
+                    else 
+                        "Faltan ${missingPermissions.size} permisos por conceder",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontWeight = FontWeight.Medium
                 )
             }
         }

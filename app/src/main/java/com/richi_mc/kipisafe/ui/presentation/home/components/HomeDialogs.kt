@@ -101,4 +101,35 @@ fun HomeDialogs(
             }
         )
     }
+
+    if (uiState.showAccessibilityDialog &&
+        uiState.postNotificationsGranted &&
+        uiState.listenerEnabled &&
+        uiState.overlayGranted &&
+        !uiState.accessibilityEnabled
+    ) {
+        AlertDialog(
+            onDismissRequest = { /* No dismiss for crucial permission */ },
+            title = { Text(text = "Protección Parental") },
+            text = {
+                Text(text = "Para que Kipi pueda detectar mensajes peligrosos en redes sociales y protegerte, necesitamos que actives el Servicio de Accesibilidad de Kipi Safe.")
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        val intent = Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)
+                        context.startActivity(intent)
+                        onDismissConfirmHelp() // We reuse dismiss logic to close dialog
+                    },
+                ) {
+                    Text(stringResource(R.string.kipi_dialog_open_settings))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = onDismissConfirmHelp) {
+                    Text(stringResource(R.string.kipi_dialog_not_now))
+                }
+            },
+        )
+    }
 }

@@ -92,8 +92,8 @@ fun DailyUsageBarChart(
                                 .fillMaxHeight(heightFraction)
                                 .clip(RoundedCornerShape(topStart = 8.dp, topEnd = 8.dp, bottomStart = 4.dp, bottomEnd = 4.dp))
                                 .background(
-                                    if (heightFraction > 0.8f) MaterialTheme.colorScheme.primary 
-                                    else MaterialTheme.colorScheme.primary.copy(alpha = 0.7f)
+                                    if (heightFraction > 0.8f) MaterialTheme.colorScheme.secondary
+                                    else MaterialTheme.colorScheme.secondary.copy(alpha = 0.7f)
                                 )
                         )
                         

@@ -80,8 +80,10 @@ fun MetricsScreen(
                         Image(
                             painter = painterResource(id = R.drawable.banner_kipi_stats),
                             contentDescription = "Kipi Safe Banner",
-                            modifier = Modifier.fillMaxSize(),
-                            contentScale = ContentScale.Crop
+                            modifier = Modifier
+                                .fillMaxWidth(0.8f)
+                                .align(Alignment.Center), // Esto centra la Image dentro del Box
+                            contentScale = ContentScale.FillWidth
                         )
                         // Gradient Overlay for better depth
                         Box(
@@ -108,7 +110,7 @@ fun MetricsScreen(
                             letterSpacing = (-0.5).sp
                         )
                         Text(
-                            text = "Monitorea tu tiempo en pantalla de forma inteligente",
+                            text = "Monitorea tu tiempo en pantalla",
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )

@@ -4,17 +4,16 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.richi_mc.kipisafe.R
 import com.richi_mc.kipisafe.ui.presentation.metrics.model.CategoryUsageInfo
 
 @Composable
@@ -22,7 +21,7 @@ fun CategoryUsageCard(
     category: CategoryUsageInfo,
     modifier: Modifier = Modifier
 ) {
-    val (icon, color) = getCategoryStyle(category.categoryName)
+    val (iconRes, color) = getCategoryStyle(category.categoryName)
 
     Surface(
         modifier = modifier
@@ -42,7 +41,7 @@ fun CategoryUsageCard(
                 .fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Icon Container (Tailwind-like circle)
+            // Contenedor del Icono
             Box(
                 modifier = Modifier
                     .size(48.dp)
@@ -51,7 +50,7 @@ fun CategoryUsageCard(
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
-                    imageVector = icon,
+                    painter = painterResource(id = iconRes),
                     contentDescription = null,
                     tint = color,
                     modifier = Modifier.size(24.dp)
@@ -91,15 +90,16 @@ fun CategoryUsageCard(
 }
 
 @Composable
-private fun getCategoryStyle(categoryName: String): Pair<ImageVector, Color> {
+private fun getCategoryStyle(categoryName: String): Pair<Int, Color> {
     return when (categoryName) {
-        "Juegos" -> Icons.Default.Gamepad to MaterialTheme.colorScheme.primary
-        "Social" -> Icons.Default.Share to MaterialTheme.colorScheme.secondary
-        "Video" -> Icons.Default.PlayCircle to MaterialTheme.colorScheme.tertiary
-        "Productividad" -> Icons.Default.EditCalendar to Color(0xFF4CAF50) // Emerald green
-        "Audio" -> Icons.Default.MusicNote to Color(0xFF9C27B0) // Purple
-        "Mapas" -> Icons.Default.Place to Color(0xFFFF9800) // Orange
-        else -> Icons.Default.Category to MaterialTheme.colorScheme.onSurfaceVariant
+        "Juegos" -> R.drawable.juegos to MaterialTheme.colorScheme.primary
+        "Social", "Sociales" -> R.drawable.sociales to MaterialTheme.colorScheme.secondary
+        "Video" -> R.drawable.video to MaterialTheme.colorScheme.tertiary
+        "Productividad" -> R.drawable.productividad to Color(0xFF4CAF50)
+        "Noticias" -> R.drawable.noticias to Color(0xFF2196F3)
+        "Audio", "Multimedia" -> R.drawable.otros to Color(0xFF9C27B0)
+        "Imágenes", "Fotos" -> R.drawable.imagenes to Color(0xFFE91E63)
+        else -> R.drawable.no_definido to MaterialTheme.colorScheme.onSurfaceVariant
     }
 }
 

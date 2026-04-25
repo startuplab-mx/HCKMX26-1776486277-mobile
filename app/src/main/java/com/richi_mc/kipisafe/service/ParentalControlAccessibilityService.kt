@@ -74,7 +74,7 @@ class ParentalControlAccessibilityService : AccessibilityService() {
 
     private fun isSocialOrMessagingApp(packageName: String): Boolean {
         // 1. Verificación rápida por nombres de paquetes comunes
-        val socialPackages = setOf(
+        val monitoredPackages = setOf(
             "com.whatsapp",
             "com.facebook.orca", // Messenger
             "com.facebook.katana", // Facebook
@@ -84,9 +84,15 @@ class ParentalControlAccessibilityService : AccessibilityService() {
             "com.snapchat.android",
             "com.zhiliaoapp.musically", // TikTok
             "com.google.android.apps.messaging", // Google Messages
-            "com.discord"
+            "com.discord",
+            "com.google.android.youtube", // YouTube
+            "com.netflix.mediaclient",    // Netflix
+            "com.disney.disneyplus",      // Disney+
+            "com.amazon.avod.thirdpartyclient", // Prime Video
+            "tv.twitch.android.app",      // Twitch
+            "com.wbd.stream"              // Max
         )
-        if (socialPackages.contains(packageName)) return true
+        if (monitoredPackages.contains(packageName)) return true
 
         // 2. Verificación por categoría del sistema (Android 8.0+)
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
@@ -94,9 +100,11 @@ class ParentalControlAccessibilityService : AccessibilityService() {
             
             return try {
                 val appInfo = packageManager.getApplicationInfo(packageName, 0)
-                val isSocial = appInfo.category == android.content.pm.ApplicationInfo.CATEGORY_SOCIAL
-                appCategoryCache[packageName] = isSocial
-                isSocial
+                // Se incluye CATEGORY_VIDEO para cubrir otras plataformas de streaming
+                val isMonitored = appInfo.category == android.content.pm.ApplicationInfo.CATEGORY_SOCIAL ||
+                                 appInfo.category == android.content.pm.ApplicationInfo.CATEGORY_VIDEO
+                appCategoryCache[packageName] = isMonitored
+                isMonitored
             } catch (e: Exception) {
                 false
             }

@@ -9,6 +9,7 @@ data class HomeUiState(
     val accessibilityEnabled: Boolean = false,
     val showKipiListenerDialog: Boolean = false,
     val showOverlayDialog: Boolean = false,
+    val showAccessibilityDialog: Boolean = false,
     val showConfirmHelpDialog: Boolean = false,
     val snackbarMessage: String? = null
 )

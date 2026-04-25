@@ -18,9 +18,12 @@ class StatsDataSource (
         val usageStatsManager = context.getSystemService(Context.USAGE_STATS_SERVICE) as UsageStatsManager
         val pm = context.packageManager
 
-        // Definir el rango de tiempo: Últimas 24 horas
+        // Definir el rango de tiempo: Desde el inicio de hoy (00:00) para consistencia con la gráfica
         val calendar = Calendar.getInstance()
-        calendar.add(Calendar.DAY_OF_YEAR, -1)
+        calendar.set(Calendar.HOUR_OF_DAY, 0)
+        calendar.set(Calendar.MINUTE, 0)
+        calendar.set(Calendar.SECOND, 0)
+        calendar.set(Calendar.MILLISECOND, 0)
         val startTime = calendar.timeInMillis
         val endTime = System.currentTimeMillis()
 

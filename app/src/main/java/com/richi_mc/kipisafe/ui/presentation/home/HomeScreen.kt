@@ -96,6 +96,10 @@ fun HomeScreen(
                             viewModel.setShowOverlayDialog(true)
                         }
 
+                        !uiState.accessibilityEnabled -> {
+                            viewModel.setShowAccessibilityDialog(true)
+                        }
+
                         else -> {
                             viewModel.refreshPermissionState()
                         }

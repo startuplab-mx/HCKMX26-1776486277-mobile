@@ -10,7 +10,14 @@ class AuthManager(context: Context) {
         .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
         .build()
 
-    private val sharedPreferences = EncryptedSharedPreferences.create(
+    private val sharedPreferences = try {
+        createSharedPreferences(context)
+    } catch (e: Exception) {
+        context.deleteSharedPreferences("auth_prefs")
+        createSharedPreferences(context)
+    }
+
+    private fun createSharedPreferences(context: Context) = EncryptedSharedPreferences.create(
         context,
         "auth_prefs",
         masterKey,

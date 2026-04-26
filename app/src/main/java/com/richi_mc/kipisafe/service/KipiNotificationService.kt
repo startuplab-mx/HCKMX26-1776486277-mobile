@@ -174,8 +174,8 @@ class KipiNotificationService : NotificationListenerService() {
 
         // 3. SEGUNDA OPINIÓN (Nube) si hay duda o mixed
         if (result.label == "MIXED"
-            || result.confidence < CLOUD_FALLBACK_CONFIDENCE_THRESHOLD
-            || result.confidence > CLOUD_FALLBACK_CONFIDENCE_DOWN_UMBRAL
+            || (result.confidence < CLOUD_FALLBACK_CONFIDENCE_THRESHOLD
+                    && result.confidence > CLOUD_FALLBACK_CONFIDENCE_DOWN_UMBRAL)
             || emojiWarrantsIntervention) {
             val analyzeRequest = NotificationAnalyzeRequest(
                 minor_id = minorId,

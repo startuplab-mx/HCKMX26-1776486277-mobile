@@ -96,10 +96,10 @@ class StatsDataSource (
             val startTime = startCalendar.timeInMillis
 
             // Consultamos la data exclusivamente para esa ventana de 24 horas
-            val usageStatsMap = usageStatsManager.queryAndAggregateUsageStats(startTime, endTime)
+            val usageStats = usageStatsManager.queryUsageStats(UsageStatsManager.INTERVAL_DAILY, startTime, endTime)
 
             var totalTimeMs = 0L
-            for (stats in usageStatsMap.values) {
+            for (stats in usageStats) {
                 totalTimeMs += stats.totalTimeInForeground
             }
 
@@ -116,7 +116,7 @@ class StatsDataSource (
 
     private fun getCategoryName(category: Int): String {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
-            return "No definida"
+            return "Sistema"
         }
 
         return when (category) {
@@ -128,8 +128,8 @@ class StatsDataSource (
             ApplicationInfo.CATEGORY_IMAGE -> "Imágenes"
             ApplicationInfo.CATEGORY_NEWS -> "Noticias"
             ApplicationInfo.CATEGORY_MAPS -> "Mapas"
-            ApplicationInfo.CATEGORY_UNDEFINED -> "No definida"
-            else -> "Otra"
+            ApplicationInfo.CATEGORY_UNDEFINED -> "Sistema"
+            else -> "Sistema"
         }
     }
 }

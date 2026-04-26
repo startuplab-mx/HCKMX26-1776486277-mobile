@@ -74,10 +74,18 @@ class HomeViewModel(
                 // Header corregido de "Device" a "Bearer" para endpoints de alerta manual
                 val authHeader = "Bearer ${authManager.getApiKey()}"
                 Log.e("KipiSafe", "Token: $authHeader")
-                val response = RetrofitClient.api.sendManualAlert(
-                    authHeader,
-                    ManualAlertRequest(minor_id = authManager.getMinorId() ?: "")
+                
+                // Alerta manual de emergencia (Botón de pánico)
+                val request = ManualAlertRequest(
+                    minor_id = authManager.getMinorId() ?: "",
+                    is_manual_help = true, // Es una solicitud explícita del menor
+                    description = "El menor solicitó ayuda de emergencia a través del botón de pánico en la aplicación.",
+                    app_source = "Manual",
+                    risk_level = 3 // Nivel de riesgo máximo para alertas manuales de emergencia
                 )
+
+                val response = RetrofitClient.api.sendManualAlert(authHeader, request)
+
                 withContext(Dispatchers.Main) {
                     _uiState.update { it.copy(isSendingAlert = false) }
                     if (response.isSuccessful && response.body()?.ok == true) {

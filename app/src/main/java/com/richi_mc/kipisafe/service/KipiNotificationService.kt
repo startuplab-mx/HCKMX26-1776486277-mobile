@@ -10,6 +10,7 @@ import android.service.notification.StatusBarNotification
 import android.util.Log
 import com.richi_mc.kipisafe.data.local.AuthManager
 import com.richi_mc.kipisafe.data.local.KipiLocalInference
+import com.richi_mc.kipisafe.data.model.ManualAlertRequest
 import com.richi_mc.kipisafe.data.model.NotificationAnalyzeRequest
 import com.richi_mc.kipisafe.data.remote.RetrofitClient
 import kotlinx.coroutines.CoroutineScope
@@ -107,103 +108,104 @@ class KipiNotificationService : NotificationListenerService() {
         val emojiWarrantsIntervention = hasCriticalEmoji && hasSubstantiveUserContentForCriticalEmoji(textPreview)
         val result = localInference.analyzeTextLocally(textPreview)
 
+        val minorId = authManager.getMinorId() ?: MINOR_ID_PROTOTYPE
+        val authHeader = "Bearer ${authManager.getApiKey()}"
+
         // Variables para alimentar el DTO basado en el análisis local
         var localRiskLevel = 1
         var kipiMessage = ""
-        var forceCloud = false
+        var riskDescription = ""
+        var isCertain = false
 
         // 1. EVALUACIÓN Y ACCIÓN LOCAL (Inmediata)
         when {
             result.label == "THREAT" && result.confidence > THREAT_CONFIDENCE_THRESHOLD -> {
                 localRiskLevel = 3
+                riskDescription = "high_risk: amenaza directa"
                 kipiMessage = "¡ALERTA! Kipi detectó una amenaza directa. Por favor, ponte en un lugar seguro y muestra este mensaje a un adulto de confianza inmediatamente."
+                isCertain = true
                 showCriticalOverlay(kipiMessage)
             }
             result.label == "HIGH_RISK" && result.confidence > HIGH_RISK_CONFIDENCE_THRESHOLD -> {
                 localRiskLevel = 3
+                riskDescription = "high_risk: reclutamiento o códigos peligrosos"
                 kipiMessage = "¡ALERTA DE SEGURIDAD! He detectado un intento de reclutamiento o códigos peligrosos. No compartas tus datos, ni fotos, ni tu ubicación."
+                isCertain = true
                 showCriticalOverlay(kipiMessage)
             }
             result.label == "BULLYING" && result.confidence > BULLYING_CONFIDENCE_THRESHOLD -> {
                 localRiskLevel = 2
+                riskDescription = "bullying: acoso o mensajes ofensivos"
                 kipiMessage = "Kipi detectó mensajes ofensivos o ciberacoso. Nadie tiene derecho a tratarte así. Recuerda que no es tu culpa; considera bloquear este contacto y hablar con alguien."
+                isCertain = true
                 showWarningOverlay(kipiMessage)
             }
             result.label == "BELONGING" && result.confidence > BELONGING_CONFIDENCE_THRESHOLD -> {
                 localRiskLevel = 2
+                riskDescription = "belonging: captación o alejamiento familiar"
                 kipiMessage = "Kipi detectó lenguaje inusual. Recuerda que no debes confiar en personas que intentan alejarte de tu familia o hacerte guardar secretos."
+                isCertain = true
                 showWarningOverlay(kipiMessage)
             }
             result.label == "SYMBOLS" && result.confidence > SYMBOLS_CONFIDENCE_THRESHOLD -> {
                 localRiskLevel = 1
+                riskDescription = "symbols: simbología dudosa"
                 kipiMessage = "Kipi detectó símbolos con notación dudosa. Consulta con un adulto antes de contestar."
+                isCertain = true
                 showWarningOverlay(kipiMessage)
-            }
-            result.label == "MIXED" || result.confidence < CLOUD_FALLBACK_CONFIDENCE_THRESHOLD -> {
-                // Incertidumbre local: Dejamos riesgo en 1 o 2, pero forzamos el análisis de Gemini en la nube
-                localRiskLevel = 1
-                forceCloud = true
             }
         }
 
-        // 2. CONSTRUIR REQUEST PARA EL BACKEND
-        // Nota: Aunque ya mostramos alerta local, mandamos el request para registrar el evento
-        val request = NotificationAnalyzeRequest(
-            minor_id = MINOR_ID_PROTOTYPE, // Idealmente ya no usar prototipo, sino el id del AuthManager
-            app_source = appSource,
-            text_preview = textPreview,
-            risk_level = localRiskLevel,
-            confidence_score = result.confidence,
-            sensitive_data_flag = emojiWarrantsIntervention,
-            kipi_response = kipiMessage.ifEmpty { null },
-            force_cloud = forceCloud || emojiWarrantsIntervention // Forzamos nube si hay dudas o emojis críticos
-        )
+        // 2. COMUNICACIÓN CON EL BACKEND (ALERTA MANUAL)
+        if (isCertain) {
+            try {
+                val manualRequest = ManualAlertRequest(
+                    minor_id = minorId,
+                    is_manual_help = false,
+                    description = riskDescription,
+                    app_source = appSource,
+                    risk_level = localRiskLevel
+                )
+                RetrofitClient.api.sendManualAlert(authHeader, manualRequest)
+            } catch (e: Exception) {
+                Log.e(TAG, "Error enviando alerta manual: ${e.message}")
+            }
+        }
 
-        // 3. CONSUMO DE API Y SEGUNDA OPINIÓN (Nube)
-        try {
-            // Recuerda usar "Bearer <api_key>" en el authHeader
-            val authHeader = "Bearer ${authManager.getApiKey()}"
-            Log.e(TAG, "Token: $authHeader")
-            val response = RetrofitClient.api.analyzeNotifications(authHeader, request)
+        // 3. SEGUNDA OPINIÓN (Nube) si hay duda o mixed
+        if (result.label == "MIXED" || result.confidence < CLOUD_FALLBACK_CONFIDENCE_THRESHOLD || emojiWarrantsIntervention) {
+            val analyzeRequest = NotificationAnalyzeRequest(
+                minor_id = minorId,
+                text_preview = textPreview,
+                app_source = appSource,
+                description = textPreview,
+                risk_level = localRiskLevel,
+                confidence_score = result.confidence,
+                sensitive_data_flag = emojiWarrantsIntervention,
+                kipi_response = kipiMessage.ifEmpty { null },
+                force_cloud = true
+            )
 
-            if (response.isSuccessful) {
-                val body = response.body()
-                val apiRiskLevel = body?.analysis?.risk_level ?: 0
-                val apiResponseText = body?.analysis?.kipi_response.orEmpty()
+            try {
+                val response = RetrofitClient.api.analyzeNotifications(authHeader, analyzeRequest)
+                if (response.isSuccessful) {
+                    val body = response.body()
+                    val cloudMessage = body?.analysis?.mensaje_para_el_menor 
+                        ?: body?.analysis?.kipi_response
 
-                // Si dependíamos de la nube (forceCloud) o la nube elevó el nivel de riesgo por encima del local
-                if (forceCloud || apiRiskLevel > localRiskLevel) {
-
-                    val isRecruitmentRelated = emojiWarrantsIntervention ||
-                            apiResponseText.contains("reclutamiento", ignoreCase = true) ||
-                            apiResponseText.contains("códigos", ignoreCase = true)
-
-                    if (isRecruitmentRelated) {
-                        Log.w("KipiSafe", "INTERVENCIÓN NUBE POR POSIBLE CAPTACIÓN | app=$appSource")
-                    }
-
-                    val finalMessage = if (emojiWarrantsIntervention) {
-                        "¡Cuidado! He detectado códigos de alto riesgo. No compartas tu ubicación ni datos personales..."
-                    } else {
-                        apiResponseText.ifEmpty { "He detectado una situación inusual. Ten cuidado con la información que compartes." }
-                    }
-
-                    Log.w(TAG, "Alerta Secundaria (Cloud) Kipi (risk=$apiRiskLevel): $finalMessage")
-                    withContext(Dispatchers.Main) {
-                        KipiOverlayManager(applicationContext).showKipiAdvice(finalMessage)
+                    if (!cloudMessage.isNullOrEmpty()) {
+                        Log.w(TAG, "Respuesta de la nube recibida")
+                        withContext(Dispatchers.Main) {
+                            KipiOverlayManager(applicationContext).showKipiAdvice(cloudMessage)
+                        }
                     }
                 }
-            } else {
-                Log.e(TAG, "API analyze HTTP ${response.code()}: ${response.errorBody()?.string().orEmpty()}")
-            }
-        } catch (e: Exception) {
-            Log.e(TAG, "Error de red o servidor: ${e.message}")
-            Log.w(TAG, "Backend no disponible, confiando 100% en el escudo local")
-
-            // Si falló la red y el análisis local dudaba, pero detectamos emojis de emergencia,
-            // garantizamos mostrar algo como fallback.
-            if (forceCloud && emojiWarrantsIntervention) {
-                showCriticalOverlay("¡Alerta de seguridad! He detectado códigos peligrosos. Por favor, no compartas tu ubicación...")
+            } catch (e: Exception) {
+                Log.e(TAG, "Error en análisis de nube: ${e.message}")
+                // Fallback si la red falla y era algo crítico
+                if (emojiWarrantsIntervention && kipiMessage.isEmpty()) {
+                    showCriticalOverlay("¡Alerta de seguridad! He detectado códigos peligrosos. Por favor, no compartas tu ubicación...")
+                }
             }
         }
     }
@@ -347,8 +349,7 @@ class KipiNotificationService : NotificationListenerService() {
         private val CRITICAL_EMOJIS = setOf("🍕", "🥷", "🪖", "🐔", "🐓", "👁️", "🧿", "👺", "👹", "🆖", "🦂")
 
         private const val PREVIEW_LOG_MAX = 500
-        private const val MINOR_ID_PROTOTYPE = "123e4567-e89b-12d3-a456-426614174000"  //TODO modificar a uno verdadero, cuando sirva xd
-        private const val RISK_LOG_THRESHOLD = 2
+        private const val MINOR_ID_PROTOTYPE = "123e4567-e89b-12d3-a456-426614174000"
         private const val MIN_MEANINGFUL_LENGTH = 2
         private const val MIN_CONTENT_FOR_CRITICAL_EMOJI = 8
 
@@ -370,9 +371,9 @@ class KipiNotificationService : NotificationListenerService() {
         )
 
         // --- UMBRALES DE CONFIANZA ACTUALIZADOS ---
-        private const val THREAT_CONFIDENCE_THRESHOLD = 0.70    // Ligeramente más bajo para no dejar pasar amenazas
+        private const val THREAT_CONFIDENCE_THRESHOLD = 0.70
         private const val HIGH_RISK_CONFIDENCE_THRESHOLD = 0.75
-        private const val BULLYING_CONFIDENCE_THRESHOLD = 0.80  // Alto para evitar falsos positivos con lenguaje coloquial
+        private const val BULLYING_CONFIDENCE_THRESHOLD = 0.80
         private const val BELONGING_CONFIDENCE_THRESHOLD = 0.85
         private const val SYMBOLS_CONFIDENCE_THRESHOLD = 0.70
         private const val CLOUD_FALLBACK_CONFIDENCE_THRESHOLD = 0.60

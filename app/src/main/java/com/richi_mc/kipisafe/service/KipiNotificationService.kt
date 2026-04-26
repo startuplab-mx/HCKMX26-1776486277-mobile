@@ -90,7 +90,7 @@ class KipiNotificationService : NotificationListenerService() {
             Log.d(TAG, "Mock activado: Lanzando overlay de Kipi")
             Handler(Looper.getMainLooper()).post {
                 val overlayManager = KipiOverlayManager(applicationContext)
-                overlayManager.showKipiAdvice("¡Hola! Soy Kipi. Este es un mensaje de prueba para ver si mi interfaz flotante funciona correctamente. ¿Me veo bien?")
+                overlayManager.showKipiAdvice("¡Hola! Soy Kipi. Este es un mensaje de prueba para ver si mi interfaz flotante funciona correctamente. ¿Me veo bien?", 1)
             }
             return
         }
@@ -124,35 +124,35 @@ class KipiNotificationService : NotificationListenerService() {
                 riskDescription = "high_risk: amenaza directa"
                 kipiMessage = "¡ALERTA! Kipi detectó una amenaza directa. Por favor, ponte en un lugar seguro y muestra este mensaje a un adulto de confianza inmediatamente."
                 isCertain = true
-                showCriticalOverlay(kipiMessage)
+                showOverlay(kipiMessage, 3)
             }
             result.label == "HIGH_RISK" && result.confidence > HIGH_RISK_CONFIDENCE_THRESHOLD -> {
                 localRiskLevel = 3
                 riskDescription = "high_risk: reclutamiento o códigos peligrosos"
                 kipiMessage = "¡ALERTA DE SEGURIDAD! He detectado un intento de reclutamiento o códigos peligrosos. No compartas tus datos, ni fotos, ni tu ubicación."
                 isCertain = true
-                showCriticalOverlay(kipiMessage)
+                showOverlay(kipiMessage, 3)
             }
             result.label == "BULLYING" && result.confidence > BULLYING_CONFIDENCE_THRESHOLD -> {
                 localRiskLevel = 2
                 riskDescription = "bullying: acoso o mensajes ofensivos"
                 kipiMessage = "Kipi detectó mensajes ofensivos o ciberacoso. Nadie tiene derecho a tratarte así. Recuerda que no es tu culpa; considera bloquear este contacto y hablar con alguien."
                 isCertain = true
-                showWarningOverlay(kipiMessage)
+                showOverlay(kipiMessage, 2)
             }
             result.label == "BELONGING" && result.confidence > BELONGING_CONFIDENCE_THRESHOLD -> {
                 localRiskLevel = 2
                 riskDescription = "belonging: captación o alejamiento familiar"
                 kipiMessage = "Kipi detectó lenguaje inusual. Recuerda que no debes confiar en personas que intentan alejarte de tu familia o hacerte guardar secretos."
                 isCertain = true
-                showWarningOverlay(kipiMessage)
+                showOverlay(kipiMessage, 2)
             }
             result.label == "SYMBOLS" && result.confidence > SYMBOLS_CONFIDENCE_THRESHOLD -> {
                 localRiskLevel = 1
                 riskDescription = "symbols: simbología dudosa"
                 kipiMessage = "Kipi detectó símbolos con notación dudosa. Consulta con un adulto antes de contestar."
                 isCertain = true
-                showWarningOverlay(kipiMessage)
+                showOverlay(kipiMessage, 1)
             }
         }
 
@@ -196,7 +196,7 @@ class KipiNotificationService : NotificationListenerService() {
                     if (!cloudMessage.isNullOrEmpty()) {
                         Log.w(TAG, "Respuesta de la nube recibida")
                         withContext(Dispatchers.Main) {
-                            KipiOverlayManager(applicationContext).showKipiAdvice(cloudMessage)
+                            KipiOverlayManager(applicationContext).showKipiAdvice(cloudMessage, localRiskLevel)
                         }
                     }
                 }
@@ -204,21 +204,15 @@ class KipiNotificationService : NotificationListenerService() {
                 Log.e(TAG, "Error en análisis de nube: ${e.message}")
                 // Fallback si la red falla y era algo crítico
                 if (emojiWarrantsIntervention && kipiMessage.isEmpty()) {
-                    showCriticalOverlay("¡Alerta de seguridad! He detectado códigos peligrosos. Por favor, no compartas tu ubicación...")
+                    showOverlay("¡Alerta de seguridad! He detectado códigos peligrosos. Por favor, no compartas tu ubicación...", 3)
                 }
             }
         }
     }
 
-    private suspend fun showCriticalOverlay(message: String) {
+    private suspend fun showOverlay(message: String, riskLevel: Int) {
         withContext(Dispatchers.Main) {
-            KipiOverlayManager(applicationContext).showKipiAdvice(message)
-        }
-    }
-
-    private suspend fun showWarningOverlay(message: String) {
-        withContext(Dispatchers.Main) {
-            KipiOverlayManager(applicationContext).showKipiAdvice(message)
+            KipiOverlayManager(applicationContext).showKipiAdvice(message, riskLevel)
         }
     }
 

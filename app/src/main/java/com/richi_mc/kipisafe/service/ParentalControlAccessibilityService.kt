@@ -64,8 +64,9 @@ class ParentalControlAccessibilityService : AccessibilityService() {
                         Log.d(TAG, "Analizando chunk de streaming: ${chunk.take(100)}")
 
                         if (checkRadicalHeuristics(chunk)) {
-                            showCriticalOverlay("Cuidado, el contenido mostrado puede ser inapropiado, por lo que te recomendamos evitarlo y buscar a un adulto de confianza.")
-                            notifyBackend(packageName, "Alerta de vocabulario: Se detectó una palabra de extremo riesgo en pantalla. Contexto capturado: \"$chunk\"", 2) // Nivel 2 de riesgo
+                            val message = "Cuidado, el contenido mostrado puede ser inapropiado, por lo que te recomendamos evitarlo y buscar a un adulto de confianza."
+                            showOverlay(message, 3)
+                            notifyBackend(packageName, "Alerta de vocabulario: Se detectó una palabra de extremo riesgo en pantalla. Contexto capturado: \"$chunk\"", 3) // Nivel 3 de riesgo
                             break // Detener análisis si se encuentra algo crítico
                         }
 
@@ -138,28 +139,28 @@ class ParentalControlAccessibilityService : AccessibilityService() {
                 riskDescription = "Alerta crítica: El sistema detectó una amenaza directa en la pantalla."
                 kipiMessage = "¡ALERTA! Kipi detectó una amenaza directa en pantalla. Por favor, busca ayuda de un adulto inmediatamente."
                 isCertain = true
-                showCriticalOverlay(kipiMessage)
+                showOverlay(kipiMessage, 3)
             }
             result.label == "HIGH_RISK" && result.confidence > HIGH_RISK_CONFIDENCE_THRESHOLD -> {
                 localRiskLevel = 3
                 riskDescription = "Alerta grave: Posible intento de reclutamiento o exposición a lenguaje peligroso."
                 kipiMessage = "¡CUIDADO! He detectado un posible intento de reclutamiento o lenguaje peligroso. No compartas datos personales."
                 isCertain = true
-                showCriticalOverlay(kipiMessage)
+                showOverlay(kipiMessage, 3)
             }
             result.label == "BULLYING" && result.confidence > BULLYING_CONFIDENCE_THRESHOLD -> {
                 localRiskLevel = 2
                 riskDescription = "Advertencia: Se detectó lenguaje ofensivo o indicios de ciberacoso."
                 kipiMessage = "Kipi detectó lenguaje ofensivo o ciberacoso en esta aplicación. No respondas a las provocaciones."
                 isCertain = true
-                showWarningOverlay(kipiMessage)
+                showOverlay(kipiMessage, 2)
             }
             result.label == "SYMBOLS" && result.confidence > SYMBOLS_CONFIDENCE_THRESHOLD -> {
                 localRiskLevel = 1
                 riskDescription = "Precaución: Kipi detectó simbología, emojis o notaciones sospechosas."
                 kipiMessage = "Kipi detectó símbolos con notación dudosa. Consulta con un adulto antes de contestar."
                 isCertain = true
-                showWarningOverlay(kipiMessage)
+                showOverlay(kipiMessage, 1)
             }
         }
 
@@ -170,17 +171,10 @@ class ParentalControlAccessibilityService : AccessibilityService() {
 
     }
 
-    private suspend fun showCriticalOverlay(message: String) {
+    private suspend fun showOverlay(message: String, riskLevel: Int) {
         lastOverlayShownTime = System.currentTimeMillis()
         withContext(Dispatchers.Main) {
-            KipiOverlayManager(applicationContext).showKipiAdvice(message)
-        }
-    }
-
-    private suspend fun showWarningOverlay(message: String) {
-        lastOverlayShownTime = System.currentTimeMillis()
-        withContext(Dispatchers.Main) {
-            KipiOverlayManager(applicationContext).showKipiAdvice(message)
+            KipiOverlayManager(applicationContext).showKipiAdvice(message, riskLevel)
         }
     }
 

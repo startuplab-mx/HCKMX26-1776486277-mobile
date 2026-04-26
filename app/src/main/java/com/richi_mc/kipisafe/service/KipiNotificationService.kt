@@ -139,7 +139,8 @@ class KipiNotificationService : NotificationListenerService() {
                 kipiMessage = "Kipi detectó símbolos con notación dudosa. Consulta con un adulto antes de contestar."
                 showWarningOverlay(kipiMessage)
             }
-            result.label == "MIXED" || result.confidence < CLOUD_FALLBACK_CONFIDENCE_THRESHOLD -> {
+            result.label == "MIXED" || result.confidence < CLOUD_FALLBACK_CONFIDENCE_THRESHOLD
+                    || result.confidence > 0.50 -> {
                 // Incertidumbre local: Dejamos riesgo en 1 o 2, pero forzamos el análisis de Gemini en la nube
                 localRiskLevel = 1
                 forceCloud = true

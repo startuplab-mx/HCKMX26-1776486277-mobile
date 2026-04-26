@@ -93,10 +93,9 @@ class AggressionFeaturizer(BaseEstimator, TransformerMixin):
             threat_hits  = sum(1 for v in self.THREAT_VERBS if v in t_lower)
             bully_hits   = sum(1 for v in self.BULLY_VERBS  if v in t_lower)
             insult_hits  = sum(1 for v in self.INSULTS       if v in t_lower)
-            emoji_density = sum(text.count(e) for e in ["🍕","🐔","🥷","🪖","👁️","👺"]) / max(len(text.split()), 1)
             rows.append([
                 caps_ratio, exclamations, questions,
-                threat_hits, bully_hits, insult_hits, emoji_density
+                threat_hits, bully_hits, insult_hits
             ])
         return csr_matrix(np.array(rows, dtype=np.float32))
 
@@ -107,10 +106,11 @@ class AggressionFeaturizer(BaseEstimator, TransformerMixin):
 class SymbolsScorer:
     RISK_EMOJIS   = ["🍕", "🐔", "🥷", "🪖", "👁️", "👺"]
     GROUP_CODES   = ["ng", "701", "chapizza", "maña", "nueva generacion",
-                     "nueva generación"]
+                     "nueva generación", "4 letras", "cuatro letras", "4letras", "cuatroletras", 
+                     "empresa de jalisco", "NDGC", "makabelico", 'makiabelico', "cha🍕"]
     RECRUIT_VERBS = ["manda", "entra", "jale", "paga", "lana", "inbox",
                      "dm", "dinero", "reclut", "vacante", "oportunidad",
-                     "trabajo", "chamba", "sueldo", "feria"]
+                     "trabajo", "chamba", "sueldo", "feria", "ando reclutando", "ando contratando"]
     SOCIAL_CONTEXT = ["familia", "mamá", "papá", "hermano", "hermana",
                       "amigo", "carnal", "nadie", "somos", "aquí",
                       "solo", "casa", "equipo", "barrio"]
@@ -209,7 +209,7 @@ class ThreatRuler:
         "te voy a matar", "te mato", "se muere", "me la cobras",
     ]
 
-    EXTORTION = [
+    EXTORTION = [ 
         "cobro de piso", "cuota", "paga la renta", "coopera",
         "paga o", "pagar o", "feria o", "lana o",
         "pasas la feria", "dame dinero", "o quemo", "o te quemo",
@@ -330,7 +330,7 @@ class EmojiFeaturizer(BaseEstimator, TransformerMixin):
 
 
 # ─────────────────────────────────────────────
-# 6. PIPELINE HÍBRIDO COMPLETO  ✦ ThreatRuler añadido
+# 6. PIPELINE HÍBRIDO COMPLETO  ✦ Actualizado
 # ─────────────────────────────────────────────
 class HybridPipeline:
     def __init__(self, ml_pipeline, label_encoder,
@@ -344,12 +344,17 @@ class HybridPipeline:
             "MIXED": 3, "HIGH_RISK": 4,
             "BULLYING": 5, "THREAT": 6
         }
+        
+        # 💡 ACTUALIZACIÓN: Se añaden job_offer y action_verbs para cruzar señales
         self.critical_tokens = {
             "high_risk_emoji" : ["🍕", "🐔", "🥷", "🪖", "👁️", "👺"],
             "recruitment_kw"  : ["ng", "nueva generacion", "maña",
-                                 "chapizza", "701"],
-            "urgency"         : ["no le digas", "manda inbox",
-                                 "dinero facil", "paga diaria"]
+                                 "chapizza", "701", "4letras", "4 letras", 
+                                 "cuatroletras", "cuatro letras", "ndgc", "cha🍕"],
+            "job_offer"       : ["jale", "paga", "chamba", "recluta", 
+                                 "contratando", "vacante", "sueldo", "feria", "lana"],
+            "urgency"         : ["no le digas", "manda inbox", "dinero facil", 
+                                 "paga diaria", "manden mensaje"]
         }
 
     def _get_signals(self, text):
@@ -358,8 +363,8 @@ class HybridPipeline:
                 if any(p in t for p in pats)]
 
     def predict(self, text: str) -> dict:
-        clean   = clean_text(text)          # preserva mayúsculas
-        clean_l = clean_text_lower(text)    # lowercase para reglas
+        clean   = clean_text(text)          
+        clean_l = clean_text_lower(text)    
         signals = self._get_signals(clean_l)
 
         # ── Paso 1: SymbolsScorer ──────────────────
@@ -394,11 +399,23 @@ class HybridPipeline:
         label   = self.le.inverse_transform([max_idx])[0]
         conf    = float(probs[max_idx])
 
-        # ── Paso 4: RuleBooster (no toca SYMBOLS/THREAT) ─
-        if (len(signals) >= 2 
-            and label not in ["HIGH_RISK", "MIXED", "SYMBOLS", "THREAT"]
-            and conf < 0.75):   # solo boost si el ML no está seguro
+        # ── Paso 4: RuleBooster (Inteligencia de Negocio) ─
+        
+        # REGLA A: Si hay palabra de cártel + oferta de trabajo = HIGH RISK Directo
+        if "recruitment_kw" in signals and ("job_offer" in signals or "urgency" in signals):
+            if label not in ["HIGH_RISK", "THREAT"]:
+                label = "HIGH_RISK"
+                conf  = max(0.85, conf) # Forzamos alta confianza
+                
+        # REGLA B: Si hay múltiples señales pero no entra en la Regla A, forzamos a MIXED
+        # (Quitamos la restricción de conf < 0.75 para que el ML no ignore sus propios errores)
+        elif len(signals) >= 2 and label not in ["HIGH_RISK", "MIXED", "SYMBOLS", "THREAT"]:
             label = "MIXED"
+            conf  = min(conf + 0.1, 1.0)
+            
+        # REGLA C: Si menciona un cártel pero no hay otra señal (ej. "ya me metí a la maña we")
+        elif "recruitment_kw" in signals and label == "SAFE":
+            label = "MIXED" # Lo mandamos a la nube para segunda opinión
             conf  = min(conf + 0.1, 1.0)
 
         return {
@@ -410,19 +427,18 @@ class HybridPipeline:
             "source"    : "ml"
         }
 
-
 # ─────────────────────────────────────────────
 # 7. CONSTRUCCIÓN DEL PIPELINE ML  ✦ AggressionFeaturizer añadido
 # ─────────────────────────────────────────────
 def build_ml_pipeline(le):
     class_weights = {
-        le.transform(["SAFE"])[0]       : 1.0,
-        le.transform(["SYMBOLS"])[0]    : 1.5,
-        le.transform(["BELONGING"])[0]  : 2.0,
-        le.transform(["HIGH_RISK"])[0]  : 3.0,  
-        le.transform(["MIXED"])[0]      : 1.8,
-        le.transform(["BULLYING"])[0]   : 2.5,  # Bajamos de 4.0 a 2.5 para mejorar su Precisión
-        le.transform(["THREAT"])[0]     : 3.0,  # Bajamos de 5.0 a 3.0 (dejamos que ThreatRuler haga el trabajo pesado)
+        le.transform(["SAFE"])[0]       : 1.2,  # Lo mantenemos con un ligero boost para protegerlo
+        le.transform(["SYMBOLS"])[0]    : 2.5,  
+        le.transform(["BELONGING"])[0]  : 2.0,  
+        le.transform(["HIGH_RISK"])[0]  : 0.8,  # ⬇️ ¡BAJADA DRÁSTICA! Ahora es la clase mayoritaria, no necesita ayuda
+        le.transform(["MIXED"])[0]      : 5.0,  # ⬆️ ¡SUBIDA DRÁSTICA! Al tener solo 42 casos, necesita muchísimo peso
+        le.transform(["BULLYING"])[0]   : 2.5,  
+        le.transform(["THREAT"])[0]     : 3.0,  
     }
 
     union = FeatureUnion([
@@ -448,7 +464,7 @@ def build_ml_pipeline(le):
         ('classifier', LogisticRegression(
             max_iter=2000,
             class_weight=class_weights,
-            C=3.0,
+            C=5.0,
             solver='lbfgs'
         ))
     ])
@@ -586,21 +602,12 @@ if __name__ == "__main__":
 
     print("\n--- PRUEBAS DE INFERENCIA ---")
     test_phrases = [
-        # símbolos
-        "Puro 🍕 reportando, manda dm para jale 💰",
-        "Hola mamá, ya voy para la casa",
-        "Aquí somos familia 🐔 nadie te deja solo carnal",
-        "🍕 presente",
-        "NG activo 🐔",
-        # amenazas
-        "te voy a picar si no me das el celular ahorita",
-        "cobro de piso, pagas o no amaneces",
-        "ya te tenemos ubicado, un movimiento en falso y te levantamos",
-        "una llamada más a la placa y te mueres",
-        # bullying
-        "te vamos a funar en twitter por ridículo",
-        "pasa el pack o lo invento y te quemo de todos modos",
-        "voy a hacer un hilo contando toda la mierda que eres",
+        "se recluta gente para las 4 letras manden mensaje si quieren superarse",
+        "4letras buena paga semanal hospedaje y comida vacaciones equipo táctico calzado y ropa quién se anima?",
+        "Traigo Jale Para El 4 Letras",
+        "Ya me metí a la maña we súbele a esa madre",
+        "Pa que tanto pancho si ya saben cuál camiseta es la que rifa 🐓 4 NG",
+        "No le tengas miedo a nada, ni a nadie.. 💀👹🥷 (si toca toca, dijo la loca )",
     ]
 
     for phrase in test_phrases:

@@ -4,6 +4,7 @@ import android.animation.Animator
 import android.animation.AnimatorListenerAdapter
 import android.annotation.SuppressLint
 import android.content.Context
+import android.graphics.Color
 import android.graphics.PixelFormat
 import android.os.Build
 import android.os.Handler
@@ -17,6 +18,7 @@ import android.view.View
 import android.view.WindowManager
 import android.view.animation.OvershootInterpolator
 import android.widget.TextView
+import androidx.cardview.widget.CardView
 import com.richi_mc.kipisafe.R
 import kotlin.math.abs
 
@@ -122,9 +124,9 @@ class KipiOverlayManager(private val context: Context) {
     }
 
     /**
-     * Actualiza el globo de texto con un mensaje de advertencia.
+     * Actualiza el globo de texto con un mensaje de advertencia y cambia el color del círculo.
      */
-    fun showKipiAdvice(message: String) {
+    fun showKipiAdvice(message: String, riskLevel: Int = 1) {
         mainHandler.post {
             if (overlayView == null) {
                 createOverlay()
@@ -133,8 +135,18 @@ class KipiOverlayManager(private val context: Context) {
             val view = overlayView ?: return@post
             val messageContainer = view.findViewById<View>(R.id.kipi_message_container)
             val textView = view.findViewById<TextView>(R.id.text_kipi_advice)
+            val bubbleContainer = view.findViewById<CardView>(R.id.kipi_bubble_container)
 
             textView.text = message
+
+            // Actualizar el color del círculo según el nivel de riesgo
+            val color = when (riskLevel) {
+                1 -> Color.parseColor("#00687B") // Informativo
+                2 -> Color.parseColor("#F59E0B") // Riesgo Medio (Naranja/Amarillo)
+                3 -> Color.parseColor("#EF4444") // Riesgo Alto (Rojo)
+                else -> Color.parseColor("#00687B")
+            }
+            bubbleContainer.setCardBackgroundColor(color)
 
             // Animación de aparición (Fade + Slide)
             messageContainer.visibility = View.VISIBLE

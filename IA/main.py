@@ -602,12 +602,9 @@ if __name__ == "__main__":
 
     print("\n--- PRUEBAS DE INFERENCIA ---")
     test_phrases = [
-        "se recluta gente para las 4 letras manden mensaje si quieren superarse",
-        "4letras buena paga semanal hospedaje y comida vacaciones equipo táctico calzado y ropa quién se anima?",
-        "Traigo Jale Para El 4 Letras",
-        "Ya me metí a la maña we súbele a esa madre",
-        "Pa que tanto pancho si ya saben cuál camiseta es la que rifa 🐓 4 NG",
-        "No le tengas miedo a nada, ni a nadie.. 💀👹🥷 (si toca toca, dijo la loca )",
+        "Se recluta gente para las 4 letras 🆖 🐓 buena paga semanal, hospedaje y comida. Vacaciones, equipo táctico, calzado y ropa. ¿Quién se anima? Manden mensaje si quieren superarse 👹 🥷 #trabajoparalamaña #belicones",
+        "Qué onda bro, únete a nuestra crew en Roblox. Somos pura gente del mz 🍕 🧿. Acá te damos buena paga y equipo táctico para el juego. Pásame tu WhatsApp para agregarte al grupo privado, pero no le digas a tus papás 👹.",
+        "Acá en la empresa somos tu verdadera familia, mijo. Con nosotros no te va a faltar nada, damos apoyos a estudiantes 🪖. Demuestra que eres leal a la camiseta que rifa, aviéntate este jale y te apadrinamos. Tú ya eres de los nuestros 👹 🧿",
     ]
 
     for phrase in test_phrases:

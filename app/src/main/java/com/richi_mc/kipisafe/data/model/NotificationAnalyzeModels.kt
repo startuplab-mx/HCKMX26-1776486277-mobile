@@ -101,7 +101,9 @@ data class NotificationAnalyzeAnalysis(
     val risk_level: Int,
     val confidence_score: Double,
     val sensitive_data_flag: Boolean,
-    val kipi_response: String? = null
+    val source: String? = null,
+    val kipi_response: String? = null,
+    val mensaje_para_el_menor: String? = null
 )
 
 data class NotificationAnalyzeSystemAction(
@@ -111,6 +113,8 @@ data class NotificationAnalyzeSystemAction(
 
 data class ManualAlertRequest(
     val minor_id: String,
+    val is_manual_help: Boolean = false,
+    val description: String? = null,
     val app_source: String? = "Manual",
     val risk_level: Int? = 2
 )
@@ -125,6 +129,7 @@ data class NotificationAnalyzeRequest(
     val minor_id: String,
     val text_preview: String,
     val app_source: String? = "Sistema",
+    val description: String? = null,
     val risk_level: Int? = null,
     val mock_risk_level: Int? = null,
     val confidence_score: Double? = null,
